@@ -40,6 +40,14 @@ npm run build
 npm run start
 ```
 
+## Admin endpoints
+If `ADMIN_TOKEN` is set, admin endpoints require a bearer token.
+
+Example:
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:4000/api/rooms
+```
+
 ## Docker
 ```bash
 docker build -t sketchboard-chat .

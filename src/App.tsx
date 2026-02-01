@@ -11,7 +11,7 @@ import {
 import { addRecentRoom, readRecentRooms } from './recentRooms'
 import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
-import { fetchRoomsMetrics, type RoomMetrics } from './adminRooms'
+import { fetchRoomsMetrics, kickUser, type RoomMetrics } from './adminRooms'
 
 type Point = { x: number; y: number }
 
@@ -299,6 +299,30 @@ function App() {
       setAdminLoading(false)
     }
   }, [adminToken])
+
+  const handleKick = useCallback(
+    async (roomId: string, userId: string, userName: string) => {
+      const token = adminToken.trim()
+      if (!token) {
+        setAdminError('Admin token required to kick.')
+        return
+      }
+      const ok = window.confirm(`Remove ${userName || userId} from ${roomId}?`)
+      if (!ok) return
+
+      setAdminLoading(true)
+      setAdminError(null)
+      try {
+        await kickUser({ roomId, userId, token })
+        await refreshRooms()
+      } catch (error) {
+        setAdminError(error instanceof Error ? error.message : 'Kick failed')
+      } finally {
+        setAdminLoading(false)
+      }
+    },
+    [adminToken, refreshRooms],
+  )
 
   useEffect(() => {
     if (!adminOpen) return
@@ -662,6 +686,28 @@ function App() {
                           {room.messagesCount} msgs
                         </span>
                       </button>
+                      {room.users && room.users.length > 0 ? (
+                        <ul className="room-users" aria-label={`Users in ${room.roomId}`}>
+                          {room.users.map((user) => (
+                            <li key={user.id} className="room-user">
+                              <span
+                                className="badge"
+                                style={{ background: user.color }}
+                                aria-hidden="true"
+                              />
+                              <span className="room-user-name">{user.name}</span>
+                              <button
+                                type="button"
+                                className="kick"
+                                onClick={() => handleKick(room.roomId, user.id, user.name)}
+                                disabled={adminLoading}
+                              >
+                                Kick
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </li>
                   ))}
                   {roomsMetrics.length === 0 && !adminLoading ? (

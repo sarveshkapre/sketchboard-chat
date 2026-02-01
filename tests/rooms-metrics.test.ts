@@ -13,5 +13,29 @@ describe('rooms metrics', () => {
       { roomId: 'a', usersCount: 0, strokesCount: 0, messagesCount: 3 },
     ])
   })
-})
 
+  it('includes users when requested', () => {
+    const rooms = new Map()
+    rooms.set('x', {
+      users: new Map([
+        ['u1', { id: 'u1', name: 'B', color: '#111' }],
+        ['u2', { id: 'u2', name: 'A', color: '#222' }],
+      ]),
+      strokes: [],
+      messages: [],
+    })
+
+    expect(snapshotRooms(rooms, { includeUsers: true })).toEqual([
+      {
+        roomId: 'x',
+        usersCount: 2,
+        strokesCount: 0,
+        messagesCount: 0,
+        users: [
+          { id: 'u2', name: 'A', color: '#222' },
+          { id: 'u1', name: 'B', color: '#111' },
+        ],
+      },
+    ])
+  })
+})

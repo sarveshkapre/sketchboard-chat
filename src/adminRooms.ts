@@ -3,6 +3,7 @@ export type RoomMetrics = {
   usersCount: number
   strokesCount: number
   messagesCount: number
+  users?: { id: string; name: string; color: string }[]
 }
 
 export async function fetchRoomsMetrics(options?: { token?: string }) {
@@ -19,3 +20,18 @@ export async function fetchRoomsMetrics(options?: { token?: string }) {
   return Array.isArray(json.rooms) ? json.rooms : []
 }
 
+export async function kickUser(options: { roomId: string; userId: string; token: string }) {
+  const response = await fetch(
+    `/api/rooms/${encodeURIComponent(options.roomId)}/kick/${encodeURIComponent(
+      options.userId,
+    )}`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${options.token}` },
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`Kick failed: ${response.status}`)
+  }
+  return (await response.json()) as { ok?: boolean }
+}

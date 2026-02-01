@@ -133,18 +133,66 @@ function getAdminToken() {
   return typeof token === 'string' && token.trim() ? token.trim() : null
 }
 
-app.get('/api/rooms', (req, res) => {
+function isAuthorizedAdmin(req) {
   const token = getAdminToken()
-  if (token) {
-    const header = req.header('authorization') || ''
-    const value = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
-    if (value !== token) {
-      res.status(401).json({ error: 'unauthorized' })
-      return
-    }
+  if (!token) return { enabled: false, authorized: false }
+
+  const header = req.header('authorization') || ''
+  const value = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
+  return { enabled: true, authorized: value === token }
+}
+
+app.get('/api/rooms', (req, res) => {
+  const auth = isAuthorizedAdmin(req)
+  if (auth.enabled && !auth.authorized) {
+    res.status(401).json({ error: 'unauthorized' })
+    return
   }
 
-  res.json({ rooms: snapshotRooms(rooms) })
+  res.json({ rooms: snapshotRooms(rooms, { includeUsers: auth.authorized }) })
+})
+
+app.post('/api/rooms/:roomId/kick/:userId', (req, res) => {
+  const auth = isAuthorizedAdmin(req)
+  if (!auth.enabled) {
+    res.status(404).json({ error: 'disabled' })
+    return
+  }
+  if (!auth.authorized) {
+    res.status(401).json({ error: 'unauthorized' })
+    return
+  }
+
+  const roomId = sanitizeRoomId(req.params.roomId)
+  const userId = String(req.params.userId || '')
+
+  const room = rooms.get(roomId)
+  if (!room) {
+    res.status(404).json({ error: 'room_not_found' })
+    return
+  }
+
+  if (!room.users.has(userId)) {
+    res.status(404).json({ error: 'user_not_found' })
+    return
+  }
+
+  const socket = io.sockets.sockets.get(userId)
+  if (!socket) {
+    room.users.delete(userId)
+    broadcastPresence(roomId, room)
+    res.json({ ok: true, alreadyDisconnected: true })
+    return
+  }
+
+  if (!socket.rooms.has(roomId)) {
+    res.status(409).json({ error: 'user_not_in_room' })
+    return
+  }
+
+  socket.emit('notice', { kind: 'info', message: 'You were removed from the room.' })
+  setTimeout(() => socket.disconnect(true), 50)
+  res.json({ ok: true })
 })
 
 const distPath = path.resolve(__dirname, '../dist')
