@@ -7,6 +7,7 @@
 - Room-based sessions.
 - SVG export.
 - Basic server-side rate limits.
+- Clean room URLs (`/r/<room>`).
 
 ## Later
 - Image import + stickers.

@@ -18,7 +18,7 @@ npm run dev
 - Client: `http://localhost:5173`
 - Server: `http://localhost:4000`
 
-Room example: `http://localhost:5173/?room=team-1`
+Room example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
 
 ## Configuration
 - `PORT` (server): default `4000`

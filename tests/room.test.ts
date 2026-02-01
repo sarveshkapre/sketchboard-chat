@@ -17,7 +17,9 @@ describe('room', () => {
 
   it('builds a room url', () => {
     const url = buildRoomUrl('http://localhost:5173/?room=old', 'new room')
-    expect(url).toContain('room=new-room')
+    expect(url).toBe('http://localhost:5173/r/new-room')
+
+    const mainUrl = buildRoomUrl('http://localhost:5173/r/other', 'main')
+    expect(mainUrl).toBe('http://localhost:5173/')
   })
 })
-

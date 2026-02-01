@@ -10,7 +10,7 @@
 - Full gate: `npm run check`
 
 ## Rooms
-Rooms separate boards by URL. Example: `http://localhost:5173/?room=team-1`
+Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
 
 ## Environment
 - `PORT` (server): default `4000`
@@ -20,4 +20,4 @@ Rooms separate boards by URL. Example: `http://localhost:5173/?room=team-1`
 ## Next 3 improvements
 1. Add lightweight persistence behind a flag.
 2. Add undo/redo + per-user stroke grouping.
-3. Add share link UX (copy + room switcher via URL path).
+3. Add per-room persistence caps and cleanup (prevent disk growth).

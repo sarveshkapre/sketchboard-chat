@@ -27,7 +27,13 @@ export function getRoomIdFromUrl(url: string) {
 
 export function buildRoomUrl(currentUrl: string, roomId: string) {
   const parsed = new URL(currentUrl)
-  parsed.searchParams.set('room', normalizeRoomId(roomId))
+  const normalized = normalizeRoomId(roomId)
+  parsed.searchParams.delete('room')
+
+  if (normalized === DEFAULT_ROOM_ID) {
+    parsed.pathname = '/'
+  } else {
+    parsed.pathname = `/r/${encodeURIComponent(normalized)}`
+  }
   return parsed.toString()
 }
-

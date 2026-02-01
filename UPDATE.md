@@ -2,6 +2,7 @@
 
 ## Shipped
 - Room-based sessions via `?room=...` (separate boards per room).
+- Clean room URLs via `/r/<room>` (shareable links).
 - Server-side validation/caps for realtime events and safer `CORS_ORIGIN` parsing.
 - SVG export (downloads vector strokes).
 - Basic server-side rate limiting for chat/draw/clear spam.
@@ -12,7 +13,7 @@
 
 ## Manual smoke
 - `npm run dev`
-- Open `http://localhost:5173/?room=team-1` in two tabs and verify isolation from `?room=team-2`.
+- Open `http://localhost:5173/r/team-1` in two tabs and verify isolation from `http://localhost:5173/r/team-2`.
 
 ## Repo workflow
 - Changes are committed directly to `main` (no PRs).

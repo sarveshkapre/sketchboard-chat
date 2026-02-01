@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 - Room-based sessions via `?room=...` (isolated board state + presence + chat).
+- Clean room URLs via `/r/<room>` (shareable links).
 - Hardened server input handling (CORS origin parsing + validation/caps for strokes, chat, and cursors).
 - SVG export for vector sketches.
 - Basic server-side rate limits for chat/drawing spam.

@@ -22,6 +22,7 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Server-side input validation + caps for strokes, chat, and cursor updates.
 - SVG export download for vector sketches.
 - Basic server-side rate limiting for spam resistance.
+- Clean, shareable room URLs via `/r/<room>`.
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next
