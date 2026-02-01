@@ -78,6 +78,25 @@ body {
   gap: 24px;
   padding: 24px 40px 40px;
   flex: 1;
+  position: relative;
+}
+
+.toast {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 39, 0.95);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+  max-width: min(640px, 92vw);
+  text-align: center;
 }
 
 .board {

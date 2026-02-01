@@ -16,11 +16,14 @@ Deliver a realtime sketchboard with chat, presence, and PNG export for quick dem
 - [x] Realtime strokes + broadcast
 - [x] Presence list + cursor tracking
 - [x] Chat panel
-- [x] Export to PNG
+- [x] Export to PNG + SVG
+- [x] Room support via `?room=...`
+- [x] Basic server-side rate limits
 - [x] CI + lint/typecheck/test/build
 
 ## Risks
 - Memory usage grows with unlimited strokes/messages; capped in server.
+- Unauthenticated by design; rate limits are basic (production should add stronger controls).
 - Canvas scaling on resize; redraw with stored strokes.
 
 ## Milestones

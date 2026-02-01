@@ -13,6 +13,7 @@ import {
   sanitizeRoomId,
   sanitizeStroke,
 } from './validation.mjs'
+import { createFixedWindowRateLimiter } from './rate-limit.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -37,6 +38,14 @@ const LIMITS = {
 }
 
 const CURSOR_BROADCAST_MIN_INTERVAL_MS = 33
+const RATE_LIMITS = {
+  chatWindowMs: 8000,
+  chatMax: 8,
+  strokeWindowMs: 1000,
+  strokeMax: 40,
+  clearWindowMs: 5000,
+  clearMax: 2,
+}
 
 const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b5de5']
 
@@ -119,7 +128,29 @@ io.on('connection', (socket) => {
 
   broadcastPresence(roomId, room)
 
+  const chatLimiter = createFixedWindowRateLimiter({
+    windowMs: RATE_LIMITS.chatWindowMs,
+    max: RATE_LIMITS.chatMax,
+  })
+  const strokeLimiter = createFixedWindowRateLimiter({
+    windowMs: RATE_LIMITS.strokeWindowMs,
+    max: RATE_LIMITS.strokeMax,
+  })
+  const clearLimiter = createFixedWindowRateLimiter({
+    windowMs: RATE_LIMITS.clearWindowMs,
+    max: RATE_LIMITS.clearMax,
+  })
+
   socket.on('stroke:add', (stroke) => {
+    const limit = strokeLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'stroke',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
     const sanitized = sanitizeStroke(stroke, LIMITS)
     if (!sanitized) return
     room.strokes.push(sanitized)
@@ -130,11 +161,29 @@ io.on('connection', (socket) => {
   })
 
   socket.on('board:clear', () => {
+    const limit = clearLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'clear',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
     room.strokes = []
     io.to(roomId).emit('board:clear')
   })
 
   socket.on('chat:message', (message) => {
+    const limit = chatLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'chat',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
     const sanitized = sanitizeChatMessage(message, LIMITS)
     if (!sanitized) return
     const entry = {

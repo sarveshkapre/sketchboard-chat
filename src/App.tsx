@@ -37,6 +37,17 @@ type PresenceCursorUpdate = {
   cursor: Point
 }
 
+type Notice =
+  | {
+      kind: 'rate_limited'
+      scope: 'chat' | 'stroke' | 'clear'
+      retryAfterMs: number
+    }
+  | {
+      kind: 'info'
+      message: string
+    }
+
 const COLORS = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b5de5', '#f15bb5']
 const SIZES = [2, 4, 6, 10]
 
@@ -102,6 +113,7 @@ function App() {
   const [chatInput, setChatInput] = useState('')
   const [roomInput, setRoomInput] = useState(initialRoomId)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
+  const [toast, setToast] = useState<string | null>(null)
 
   const socket = useMemo(
     () => io(getSocketUrl(), { autoConnect: true, auth: { room: initialRoomId } }),
@@ -187,6 +199,22 @@ function App() {
       setMessages((prev) => [...prev, message].slice(-LIMITS.maxMessages))
     })
 
+    socket.on('notice', (notice: Notice) => {
+      if (notice.kind === 'rate_limited') {
+        const label =
+          notice.scope === 'chat'
+            ? 'Chat'
+            : notice.scope === 'stroke'
+              ? 'Drawing'
+              : 'Clear'
+        setToast(`${label} is rate limited — try again in ${Math.ceil(notice.retryAfterMs / 1000)}s.`)
+        return
+      }
+      if (notice.kind === 'info') {
+        setToast(notice.message)
+      }
+    })
+
     return () => {
       if (cursorRafRef.current !== null) {
         window.cancelAnimationFrame(cursorRafRef.current)
@@ -205,6 +233,12 @@ function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages])
+
+  useEffect(() => {
+    if (!toast) return
+    const timeout = window.setTimeout(() => setToast(null), 1600)
+    return () => window.clearTimeout(timeout)
+  }, [toast])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -321,6 +355,11 @@ function App() {
       </header>
 
       <div className="layout">
+        {toast ? (
+          <div className="toast" role="status">
+            {toast}
+          </div>
+        ) : null}
         <section className="board">
           <div className="toolbar">
             <div className="tool-group">
