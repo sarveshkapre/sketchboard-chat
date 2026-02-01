@@ -14,6 +14,7 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - Recent rooms list (localStorage)
 - View-only mode via `?mode=view`
 - Admin room metrics endpoint (`GET /api/rooms`)
+- Rooms panel UI (uses `/api/rooms`)
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -35,6 +36,7 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Recent rooms list (localStorage).
 - View-only mode via `?mode=view`.
 - Admin room metrics endpoint (`GET /api/rooms`).
+- Rooms panel UI (uses `/api/rooms`).
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next

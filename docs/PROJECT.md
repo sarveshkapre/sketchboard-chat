@@ -26,5 +26,5 @@ View-only mode: append `?mode=view` (disables drawing + chat).
 
 ## Next 3 improvements
 1. Add per-user stroke grouping (better undo UX).
-2. Add a basic admin endpoint for room metrics (counts, sizes).
-3. Add readonly/share links and "spectator" mode.
+2. Add per-room user permissions (owners / moderators).
+3. Add basic auth (optional, lightweight).

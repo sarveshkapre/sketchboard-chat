@@ -12,6 +12,7 @@
 - Recent rooms list (localStorage).
 - View-only mode via `?mode=view`.
 - Admin room metrics endpoint (`GET /api/rooms`).
+- Rooms panel UI (uses `/api/rooms`).
 - Presence/chat UX improvements (cursor deltas, throttled cursor emits, author metadata, chat autoscroll).
 
 ## [0.1.0] - 2026-02-01

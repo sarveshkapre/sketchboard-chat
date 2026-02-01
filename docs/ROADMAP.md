@@ -14,6 +14,7 @@
 - Recent rooms list (local).
 - View-only mode (`?mode=view`).
 - Admin room metrics endpoint (`GET /api/rooms`).
+- Rooms panel UI (uses `/api/rooms`).
 
 ## Later
 - Image import + stickers.

@@ -11,6 +11,7 @@ import {
 import { addRecentRoom, readRecentRooms } from './recentRooms'
 import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
+import { fetchRoomsMetrics, type RoomMetrics } from './adminRooms'
 
 type Point = { x: number; y: number }
 
@@ -134,6 +135,11 @@ function App() {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
   const [toast, setToast] = useState<string | null>(null)
   const [recentRooms, setRecentRooms] = useState<string[]>(() => readRecentRooms())
+  const [adminOpen, setAdminOpen] = useState(false)
+  const [adminToken, setAdminToken] = useState('')
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [adminError, setAdminError] = useState<string | null>(null)
+  const [roomsMetrics, setRoomsMetrics] = useState<RoomMetrics[]>([])
 
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
@@ -280,6 +286,24 @@ function App() {
   useEffect(() => {
     setRecentRooms(addRecentRoom(roomId))
   }, [roomId])
+
+  const refreshRooms = useCallback(async () => {
+    setAdminLoading(true)
+    setAdminError(null)
+    try {
+      const rooms = await fetchRoomsMetrics({ token: adminToken.trim() || undefined })
+      setRoomsMetrics(rooms)
+    } catch (error) {
+      setAdminError(error instanceof Error ? error.message : 'Failed to load rooms')
+    } finally {
+      setAdminLoading(false)
+    }
+  }, [adminToken])
+
+  useEffect(() => {
+    if (!adminOpen) return
+    void refreshRooms()
+  }, [adminOpen, refreshRooms])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -597,6 +621,55 @@ function App() {
               </button>
               <p className="muted">{viewOnly ? 'Read-only mode' : 'Edit mode'}</p>
             </div>
+          </div>
+          <div className="panel-block admin">
+            <div className="admin-header">
+              <h3>Rooms</h3>
+              <button type="button" onClick={() => setAdminOpen((value) => !value)}>
+                {adminOpen ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            {adminOpen ? (
+              <div className="admin-body">
+                <div className="admin-controls">
+                  <input
+                    value={adminToken}
+                    onChange={(event) => setAdminToken(event.target.value)}
+                    placeholder="Admin token (optional)"
+                    aria-label="Admin token"
+                  />
+                  <button type="button" onClick={refreshRooms} disabled={adminLoading}>
+                    {adminLoading ? 'Loading…' : 'Refresh'}
+                  </button>
+                </div>
+                {adminError ? <p className="muted">{adminError}</p> : null}
+                <ul className="rooms-list">
+                  {roomsMetrics.map((room) => (
+                    <li key={room.roomId}>
+                      <button
+                        type="button"
+                        className="room-link"
+                        onClick={() => {
+                          const url = viewOnly
+                            ? buildViewUrl(window.location.href, room.roomId)
+                            : buildRoomUrl(window.location.href, room.roomId)
+                          window.location.assign(url)
+                        }}
+                      >
+                        <span className="room-name">{room.roomId}</span>
+                        <span className="room-meta">
+                          {room.usersCount} users · {room.strokesCount} strokes ·{' '}
+                          {room.messagesCount} msgs
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                  {roomsMetrics.length === 0 && !adminLoading ? (
+                    <li className="muted">No active rooms.</li>
+                  ) : null}
+                </ul>
+              </div>
+            ) : null}
           </div>
           <div className="panel-block">
             <h3>Active crew</h3>
