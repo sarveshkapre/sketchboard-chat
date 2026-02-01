@@ -3,6 +3,7 @@
 ## Shipped
 - Room-based sessions via `?room=...` (separate boards per room).
 - Server-side validation/caps for realtime events and safer `CORS_ORIGIN` parsing.
+- SVG export (downloads vector strokes).
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified

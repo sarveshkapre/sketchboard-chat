@@ -19,6 +19,7 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 ## What shipped last
 - Room-based sessions via `?room=...` (isolated board state + presence + chat per room).
 - Server-side input validation + caps for strokes, chat, and cursor updates.
+- SVG export download for vector sketches.
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next

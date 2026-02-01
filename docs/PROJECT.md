@@ -18,6 +18,6 @@ Rooms separate boards by URL. Example: `http://localhost:5173/?room=team-1`
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Add SVG export for vector sketches.
-2. Add lightweight persistence behind a flag.
-3. Add undo/redo + per-user stroke grouping.
+1. Add lightweight persistence behind a flag.
+2. Add undo/redo + per-user stroke grouping.
+3. Add basic rate limiting for chat/cursor spam.

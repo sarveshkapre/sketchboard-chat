@@ -7,7 +7,7 @@ Realtime sketching board with multiplayer presence and chat. Draw together, see 
 - Multiplayer presence with live cursors
 - Group chat panel
 - Room-based sessions via `?room=...`
-- Export to PNG
+- Export to PNG and SVG
 
 ## Quickstart
 ```bash

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import './App.css'
 import { buildRoomUrl, getRoomIdFromUrl, normalizeRoomId } from './room'
+import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
 
 type Point = { x: number; y: number }
@@ -257,6 +258,27 @@ function App() {
     link.click()
   }
 
+  const handleExportSvg = () => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const rect = wrapper.getBoundingClientRect()
+
+    const svg = strokesToSvg({
+      strokes: strokesRef.current,
+      width: rect.width,
+      height: rect.height,
+      background: '#0b0b13',
+    })
+
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `sketchboard-${roomId}-${Date.now()}.svg`
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
   const handleJoinRoom = (event: React.FormEvent) => {
     event.preventDefault()
     const nextRoom = normalizeRoomId(roomInput)
@@ -340,6 +362,7 @@ function App() {
             <div className="tool-group actions">
               <button onClick={handleClear}>Clear</button>
               <button onClick={handleExport}>Export PNG</button>
+              <button onClick={handleExportSvg}>Export SVG</button>
             </div>
           </div>
 
