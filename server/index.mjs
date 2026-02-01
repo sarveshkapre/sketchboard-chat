@@ -14,6 +14,7 @@ import {
   sanitizeStroke,
 } from './validation.mjs'
 import { createFixedWindowRateLimiter } from './rate-limit.mjs'
+import { createRoomPersistence } from './persistence.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -36,6 +37,17 @@ const LIMITS = {
   maxMessages: 200,
   maxStrokes: 1000,
 }
+
+const persistence = createRoomPersistence({
+  enabled: process.env.PERSIST === '1' || process.env.PERSIST === 'true',
+  dir: process.env.PERSIST_DIR
+    ? path.resolve(process.cwd(), process.env.PERSIST_DIR)
+    : path.resolve(process.cwd(), 'data'),
+  debounceMs: process.env.PERSIST_DEBOUNCE_MS
+    ? Number(process.env.PERSIST_DEBOUNCE_MS)
+    : 400,
+  limits: { maxStrokes: LIMITS.maxStrokes, maxMessages: LIMITS.maxMessages },
+})
 
 const CURSOR_BROADCAST_MIN_INTERVAL_MS = 33
 const RATE_LIMITS = {
@@ -68,6 +80,8 @@ function createRoomState() {
     strokes: [],
     messages: [],
     users: new Map(),
+    hydrated: false,
+    hydratePromise: null,
   }
 }
 
@@ -75,6 +89,22 @@ function getRoom(roomId) {
   const existing = rooms.get(roomId)
   if (existing) return existing
   const created = createRoomState()
+  if (persistence.enabled) {
+    created.hydratePromise = persistence
+      .load(roomId)
+      .then((loaded) => {
+        if (loaded) {
+          created.strokes = loaded.strokes
+          created.messages = loaded.messages
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        created.hydrated = true
+      })
+  } else {
+    created.hydrated = true
+  }
   rooms.set(roomId, created)
   return created
 }
@@ -99,12 +129,15 @@ if (fs.existsSync(distPath)) {
   })
 }
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   const rawRoom =
     socket.handshake.auth?.room ??
     (typeof socket.handshake.query?.room === 'string' ? socket.handshake.query.room : '')
   const roomId = sanitizeRoomId(rawRoom)
   const room = getRoom(roomId)
+  if (room.hydratePromise) {
+    await room.hydratePromise.catch(() => {})
+  }
   socket.join(roomId)
 
   const user = {
@@ -157,6 +190,7 @@ io.on('connection', (socket) => {
     if (room.strokes.length > LIMITS.maxStrokes) {
       room.strokes.shift()
     }
+    persistence.scheduleSave(roomId, room)
     socket.to(roomId).emit('stroke:add', sanitized)
   })
 
@@ -171,6 +205,7 @@ io.on('connection', (socket) => {
       return
     }
     room.strokes = []
+    persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('board:clear')
   })
 
@@ -198,6 +233,7 @@ io.on('connection', (socket) => {
     if (room.messages.length > LIMITS.maxMessages) {
       room.messages.shift()
     }
+    persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('chat:message', entry)
   })
 
@@ -219,6 +255,7 @@ io.on('connection', (socket) => {
     room.users.delete(socket.id)
     broadcastPresence(roomId, room)
     if (room.users.size === 0) {
+      void persistence.flush(roomId, room).catch(() => {})
       rooms.delete(roomId)
     }
   })

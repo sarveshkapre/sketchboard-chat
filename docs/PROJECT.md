@@ -15,9 +15,12 @@ Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also su
 ## Environment
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod)
+- `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
+- `PERSIST_DIR` (server): persistence directory (default `./data`)
+- `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Add lightweight persistence behind a flag.
-2. Add undo/redo + per-user stroke grouping.
-3. Add per-room persistence caps and cleanup (prevent disk growth).
+1. Add undo/redo + per-user stroke grouping.
+2. Add per-room persistence caps and cleanup (prevent disk growth).
+3. Add a basic admin endpoint for room metrics (counts, sizes).

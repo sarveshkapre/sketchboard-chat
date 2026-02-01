@@ -8,6 +8,7 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - Group chat
 - Room-based sessions via `?room=...`
 - Export canvas to PNG and SVG
+- Optional disk persistence (`PERSIST=1`)
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -23,6 +24,7 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - SVG export download for vector sketches.
 - Basic server-side rate limiting for spam resistance.
 - Clean, shareable room URLs via `/r/<room>`.
+- Optional disk persistence for rooms (`PERSIST=1`).
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next

@@ -23,6 +23,9 @@ Room example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
 ## Configuration
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod, e.g. `https://example.com,https://www.example.com`)
+- `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
+- `PERSIST_DIR` (server): persistence directory (default `./data`)
+- `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)
 - `VITE_SERVER_URL` (client): override Socket.IO server URL
 
 ## Production

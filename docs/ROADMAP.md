@@ -8,6 +8,7 @@
 - SVG export.
 - Basic server-side rate limits.
 - Clean room URLs (`/r/<room>`).
+- Optional disk persistence (`PERSIST=1`).
 
 ## Later
 - Image import + stickers.
