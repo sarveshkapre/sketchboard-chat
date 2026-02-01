@@ -9,12 +9,15 @@
 - Build: `npm run build`
 - Full gate: `npm run check`
 
+## Rooms
+Rooms separate boards by URL. Example: `http://localhost:5173/?room=team-1`
+
 ## Environment
 - `PORT` (server): default `4000`
-- `CORS_ORIGIN` (server): default `*`
+- `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod)
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Add room support so multiple boards can exist.
-2. Add SVG export for vector sketches.
-3. Persist sessions to disk.
+1. Add SVG export for vector sketches.
+2. Add lightweight persistence behind a flag.
+3. Add undo/redo + per-user stroke grouping.

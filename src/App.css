@@ -201,6 +201,41 @@ canvas {
   gap: 12px;
 }
 
+.room form {
+  display: flex;
+  gap: 8px;
+}
+
+.room input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0f0f1c;
+  color: var(--text);
+}
+
+.room button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent-2);
+  font-weight: 600;
+  color: #0b0b13;
+  cursor: pointer;
+}
+
+.room-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.room-actions .muted {
+  margin: 0;
+}
+
 .panel-block h3 {
   margin: 0;
   font-size: 16px;
@@ -262,6 +297,31 @@ canvas {
   background: var(--panel-2);
   padding: 10px 12px;
   border-radius: 12px;
+}
+
+.message .bubble p {
+  margin: 0;
+}
+
+.message .bubble .meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.message .bubble .badge {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.message .bubble p + p {
+  margin-top: 6px;
 }
 
 .message span {

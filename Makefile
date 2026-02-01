@@ -22,4 +22,4 @@ check:
 	npm run check
 
 release: check
-	@echo "Update docs/CHANGELOG.md and tag release"
+	@echo "Update CHANGELOG.md and tag release"

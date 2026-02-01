@@ -10,7 +10,7 @@ Deliver a realtime sketchboard with chat, presence, and PNG export for quick dem
 ## Architecture
 - `server/index.mjs` hosts Socket.IO + serves production static build.
 - `src/App.tsx` holds the drawing board, presence, and chat UI.
-- In-memory state for strokes/messages/users.
+- In-memory state per room for strokes/messages/users.
 
 ## MVP checklist
 - [x] Realtime strokes + broadcast

@@ -1,9 +1,11 @@
 # ROADMAP
 
 ## Near-term
-- Room-based sessions.
 - SVG export.
 - Chat reactions and message pinning.
+
+## Done
+- Room-based sessions.
 
 ## Later
 - Image import + stickers.
