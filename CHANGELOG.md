@@ -14,6 +14,7 @@
 - Admin room metrics endpoint (`GET /api/rooms`).
 - Rooms panel UI (uses `/api/rooms`).
 - Kick users from a room (admin token required).
+- Rooms panel UX polish (filter + auto refresh).
 - Presence/chat UX improvements (cursor deltas, throttled cursor emits, author metadata, chat autoscroll).
 
 ## [0.1.0] - 2026-02-01

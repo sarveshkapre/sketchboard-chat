@@ -140,6 +140,8 @@ function App() {
   const [adminLoading, setAdminLoading] = useState(false)
   const [adminError, setAdminError] = useState<string | null>(null)
   const [roomsMetrics, setRoomsMetrics] = useState<RoomMetrics[]>([])
+  const [roomsFilter, setRoomsFilter] = useState('')
+  const [roomsAutoRefresh, setRoomsAutoRefresh] = useState(true)
 
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
@@ -328,6 +330,15 @@ function App() {
     if (!adminOpen) return
     void refreshRooms()
   }, [adminOpen, refreshRooms])
+
+  useEffect(() => {
+    if (!adminOpen) return
+    if (!roomsAutoRefresh) return
+    const interval = window.setInterval(() => {
+      void refreshRooms()
+    }, 5000)
+    return () => window.clearInterval(interval)
+  }, [adminOpen, roomsAutoRefresh, refreshRooms])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -662,17 +673,37 @@ function App() {
                     placeholder="Admin token (optional)"
                     aria-label="Admin token"
                   />
+                  <input
+                    value={roomsFilter}
+                    onChange={(event) => setRoomsFilter(event.target.value)}
+                    placeholder="Filter rooms…"
+                    aria-label="Filter rooms"
+                  />
                   <button type="button" onClick={refreshRooms} disabled={adminLoading}>
                     {adminLoading ? 'Loading…' : 'Refresh'}
                   </button>
                 </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={roomsAutoRefresh}
+                    onChange={(event) => setRoomsAutoRefresh(event.target.checked)}
+                  />
+                  Auto refresh
+                </label>
                 {adminError ? <p className="muted">{adminError}</p> : null}
                 <ul className="rooms-list">
-                  {roomsMetrics.map((room) => (
+                  {roomsMetrics
+                    .filter((room) =>
+                      roomsFilter.trim()
+                        ? room.roomId.toLowerCase().includes(roomsFilter.trim().toLowerCase())
+                        : true,
+                    )
+                    .map((room) => (
                     <li key={room.roomId}>
                       <button
                         type="button"
-                        className="room-link"
+                        className={room.roomId === roomId ? 'room-link active' : 'room-link'}
                         onClick={() => {
                           const url = viewOnly
                             ? buildViewUrl(window.location.href, room.roomId)

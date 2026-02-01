@@ -338,6 +338,19 @@ canvas {
   color: var(--text);
 }
 
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.toggle input {
+  accent-color: var(--accent-2);
+}
+
 .rooms-list {
   list-style: none;
   padding: 0;
@@ -395,6 +408,11 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.room-link.active {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(77, 150, 255, 0.2);
 }
 
 .room-name {
