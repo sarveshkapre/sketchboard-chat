@@ -47,6 +47,10 @@ const persistence = createRoomPersistence({
   debounceMs: process.env.PERSIST_DEBOUNCE_MS
     ? Number(process.env.PERSIST_DEBOUNCE_MS)
     : 400,
+  maxRooms: process.env.PERSIST_MAX_ROOMS ? Number(process.env.PERSIST_MAX_ROOMS) : null,
+  maxAgeMs: process.env.PERSIST_TTL_DAYS
+    ? Number(process.env.PERSIST_TTL_DAYS) * 24 * 60 * 60 * 1000
+    : null,
   limits: { maxStrokes: LIMITS.maxStrokes, maxMessages: LIMITS.maxMessages },
 })
 

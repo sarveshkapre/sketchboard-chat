@@ -27,6 +27,8 @@ Room example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
 - `PERSIST_DIR` (server): persistence directory (default `./data`)
 - `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)
+- `PERSIST_MAX_ROOMS` (server): optional cap on number of room files kept (cleanup runs in background)
+- `PERSIST_TTL_DAYS` (server): optional TTL for room files (delete older than N days)
 - `VITE_SERVER_URL` (client): override Socket.IO server URL
 
 ## Production

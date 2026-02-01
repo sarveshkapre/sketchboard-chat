@@ -9,6 +9,7 @@
 - Basic server-side rate limits.
 - Clean room URLs (`/r/<room>`).
 - Optional disk persistence (`PERSIST=1`).
+- Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`).
 - Undo/redo (per-user).
 
 ## Later
