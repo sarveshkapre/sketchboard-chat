@@ -251,6 +251,28 @@ canvas {
   gap: 12px;
 }
 
+.recent-rooms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recent {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.recent.active {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(77, 150, 255, 0.2);
+}
+
 .room-actions .muted {
   margin: 0;
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import './App.css'
 import { buildRoomUrl, getRoomIdFromUrl, normalizeRoomId } from './room'
+import { addRecentRoom, readRecentRooms } from './recentRooms'
 import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
 
@@ -124,6 +125,7 @@ function App() {
   const [roomInput, setRoomInput] = useState(initialRoomId)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
   const [toast, setToast] = useState<string | null>(null)
+  const [recentRooms, setRecentRooms] = useState<string[]>(() => readRecentRooms())
 
   const socket = useMemo(
     () => io(getSocketUrl(), { autoConnect: true, auth: { room: initialRoomId } }),
@@ -259,6 +261,10 @@ function App() {
     const timeout = window.setTimeout(() => setToast(null), 1600)
     return () => window.clearTimeout(timeout)
   }, [toast])
+
+  useEffect(() => {
+    setRecentRooms(addRecentRoom(roomId))
+  }, [roomId])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -506,6 +512,23 @@ function App() {
               />
               <button type="submit">Join</button>
             </form>
+            {recentRooms.length > 0 ? (
+              <div className="recent-rooms" aria-label="Recent rooms">
+                {recentRooms.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={value === roomId ? 'recent active' : 'recent'}
+                    onClick={() => {
+                      const url = buildRoomUrl(window.location.href, value)
+                      window.location.assign(url)
+                    }}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="room-actions">
               <button type="button" onClick={handleCopyLink}>
                 {copyStatus === 'copied' ? 'Copied' : 'Copy link'}

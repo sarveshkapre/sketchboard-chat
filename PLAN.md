@@ -8,8 +8,10 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - Group chat
 - Room-based sessions via `?room=...`
 - Export canvas to PNG and SVG
+- Undo/redo for your own strokes (synced)
 - Optional disk persistence (`PERSIST=1`)
 - Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`)
+- Recent rooms list (localStorage)
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -28,9 +30,9 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Optional disk persistence for rooms (`PERSIST=1`).
 - Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`).
 - Undo/redo for your own strokes (synced).
+- Recent rooms list (localStorage).
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next
 - Optional: readonly/share links and "spectator" mode.
 - Stroke grouping by user (for better undo UX).
-- Persistence caps/cleanup (prevent disk growth).

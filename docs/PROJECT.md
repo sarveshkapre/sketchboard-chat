@@ -25,4 +25,4 @@ Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also su
 ## Next 3 improvements
 1. Add per-user stroke grouping (better undo UX).
 2. Add a basic admin endpoint for room metrics (counts, sizes).
-3. Add a small room list UI (recent rooms).
+3. Add readonly/share links and "spectator" mode.

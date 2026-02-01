@@ -11,6 +11,7 @@
 - Optional disk persistence (`PERSIST=1`).
 - Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`).
 - Undo/redo (per-user).
+- Recent rooms list (local).
 
 ## Later
 - Image import + stickers.

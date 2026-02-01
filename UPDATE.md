@@ -9,6 +9,7 @@
 - Optional disk persistence for rooms (`PERSIST=1`).
 - Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`).
 - Undo/redo for your own strokes (synced).
+- Recent rooms list (localStorage).
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified
