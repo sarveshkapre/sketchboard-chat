@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import './App.css'
-import { buildRoomUrl, getRoomIdFromUrl, normalizeRoomId } from './room'
+import {
+  buildRoomUrl,
+  buildViewUrl,
+  getRoomIdFromUrl,
+  isViewOnlyFromUrl,
+  normalizeRoomId,
+} from './room'
 import { addRecentRoom, readRecentRooms } from './recentRooms'
 import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
@@ -103,6 +109,7 @@ function drawAll(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
 
 function App() {
   const initialRoomId = useMemo(() => getRoomIdFromUrl(window.location.href), [])
+  const initialViewOnly = useMemo(() => isViewOnlyFromUrl(window.location.href), [])
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
@@ -116,6 +123,7 @@ function App() {
   const [connected, setConnected] = useState(false)
   const [selfId, setSelfId] = useState('')
   const [roomId, setRoomId] = useState(initialRoomId)
+  const [viewOnly, setViewOnly] = useState(initialViewOnly)
   const [users, setUsers] = useState<PresenceUser[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [color, setColor] = useState(COLORS[0])
@@ -127,10 +135,12 @@ function App() {
   const [toast, setToast] = useState<string | null>(null)
   const [recentRooms, setRecentRooms] = useState<string[]>(() => readRecentRooms())
 
-  const socket = useMemo(
-    () => io(getSocketUrl(), { autoConnect: true, auth: { room: initialRoomId } }),
-    [initialRoomId],
-  )
+  const socket = useMemo(() => {
+    return io(getSocketUrl(), {
+      autoConnect: true,
+      auth: { room: initialRoomId, mode: initialViewOnly ? 'view' : 'edit' },
+    })
+  }, [initialRoomId, initialViewOnly])
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current
@@ -173,6 +183,11 @@ function App() {
       if (payload.roomId) {
         setRoomId(payload.roomId)
         setRoomInput(payload.roomId)
+      }
+      if (typeof payload.viewOnly === 'boolean') {
+        setViewOnly(payload.viewOnly)
+      } else {
+        setViewOnly(isViewOnlyFromUrl(window.location.href))
       }
       setUsers(payload.users)
       setMessages(payload.messages.slice(-LIMITS.maxMessages))
@@ -270,6 +285,7 @@ function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return
       if (!socketRef.current?.connected) return
+      if (viewOnly) return
 
       const isUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z'
       const isRedo =
@@ -290,9 +306,10 @@ function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [viewOnly])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (viewOnly) return
     const canvas = canvasRef.current
     if (!canvas) return
     canvas.setPointerCapture(event.pointerId)
@@ -309,6 +326,7 @@ function App() {
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (viewOnly) return
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
@@ -323,6 +341,7 @@ function App() {
   }
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (viewOnly) return
     if (!drawingRef.current) return
     event.currentTarget.releasePointerCapture(event.pointerId)
     const stroke = drawingRef.current
@@ -332,15 +351,18 @@ function App() {
   }
 
   const handleClear = () => {
+    if (viewOnly) return
     socketRef.current?.emit('board:clear')
   }
 
   const handleUndo = () => {
+    if (viewOnly) return
     if (drawingRef.current) return
     socketRef.current?.emit('stroke:undo')
   }
 
   const handleRedo = () => {
+    if (viewOnly) return
     if (drawingRef.current) return
     socketRef.current?.emit('stroke:redo')
   }
@@ -378,7 +400,9 @@ function App() {
   const handleJoinRoom = (event: React.FormEvent) => {
     event.preventDefault()
     const nextRoom = normalizeRoomId(roomInput)
-    const url = buildRoomUrl(window.location.href, nextRoom)
+    const url = viewOnly
+      ? buildViewUrl(window.location.href, nextRoom)
+      : buildRoomUrl(window.location.href, nextRoom)
     window.location.assign(url)
   }
 
@@ -393,8 +417,26 @@ function App() {
     }
   }
 
+  const handleCopyViewLink = async () => {
+    const url = buildViewUrl(window.location.href, roomId)
+    try {
+      await navigator.clipboard.writeText(url)
+      setToast('View link copied.')
+    } catch {
+      window.prompt('Copy this link', url)
+    }
+  }
+
+  const handleToggleMode = () => {
+    const url = viewOnly
+      ? buildRoomUrl(window.location.href, roomId)
+      : buildViewUrl(window.location.href, roomId)
+    window.location.assign(url)
+  }
+
   const handleSend = (event: React.FormEvent) => {
     event.preventDefault()
+    if (viewOnly) return
     if (!chatInput.trim()) return
     socketRef.current?.emit('chat:message', {
       id: createId('msg'),
@@ -424,16 +466,23 @@ function App() {
         ) : null}
         <section className="board">
           <div className="toolbar">
+            {viewOnly ? (
+              <div className="mode-pill" aria-label="View only">
+                View only
+              </div>
+            ) : null}
             <div className="tool-group">
               <button
                 className={tool === 'pen' ? 'active' : ''}
                 onClick={() => setTool('pen')}
+                disabled={viewOnly}
               >
                 Pen
               </button>
               <button
                 className={tool === 'eraser' ? 'active' : ''}
                 onClick={() => setTool('eraser')}
+                disabled={viewOnly}
               >
                 Eraser
               </button>
@@ -446,6 +495,7 @@ function App() {
                   style={{ background: swatch }}
                   onClick={() => setColor(swatch)}
                   aria-label={`Color ${swatch}`}
+                  disabled={viewOnly}
                 />
               ))}
             </div>
@@ -455,19 +505,22 @@ function App() {
                   key={value}
                   className={size === value ? 'active' : ''}
                   onClick={() => setSize(value)}
+                  disabled={viewOnly}
                 >
                   {value}px
                 </button>
               ))}
             </div>
             <div className="tool-group actions">
-              <button onClick={handleUndo} title="Undo (⌘/Ctrl+Z)">
+              <button onClick={handleUndo} title="Undo (⌘/Ctrl+Z)" disabled={viewOnly}>
                 Undo
               </button>
-              <button onClick={handleRedo} title="Redo (⇧⌘Z / Ctrl+Y)">
+              <button onClick={handleRedo} title="Redo (⇧⌘Z / Ctrl+Y)" disabled={viewOnly}>
                 Redo
               </button>
-              <button onClick={handleClear}>Clear</button>
+              <button onClick={handleClear} disabled={viewOnly}>
+                Clear
+              </button>
               <button onClick={handleExport}>Export PNG</button>
               <button onClick={handleExportSvg}>Export SVG</button>
             </div>
@@ -533,7 +586,16 @@ function App() {
               <button type="button" onClick={handleCopyLink}>
                 {copyStatus === 'copied' ? 'Copied' : 'Copy link'}
               </button>
+              <button type="button" onClick={handleCopyViewLink}>
+                Copy view link
+              </button>
               <p className="muted">Current: {roomId}</p>
+            </div>
+            <div className="room-actions">
+              <button type="button" onClick={handleToggleMode}>
+                {viewOnly ? 'Switch to edit' : 'Switch to view'}
+              </button>
+              <p className="muted">{viewOnly ? 'Read-only mode' : 'Edit mode'}</p>
             </div>
           </div>
           <div className="panel-block">
@@ -575,8 +637,11 @@ function App() {
                 value={chatInput}
                 onChange={(event) => setChatInput(event.target.value)}
                 placeholder="Say something..."
+                disabled={viewOnly}
               />
-              <button type="submit">Send</button>
+              <button type="submit" disabled={viewOnly}>
+                Send
+              </button>
             </form>
           </div>
         </aside>

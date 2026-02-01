@@ -10,6 +10,7 @@
 - Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`).
 - Undo/redo for your own strokes (synced).
 - Recent rooms list (localStorage).
+- View-only mode via `?mode=view`.
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified

@@ -20,6 +20,7 @@ npm run dev
 - Server: `http://localhost:4000`
 
 Room example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
+View-only example: `http://localhost:5173/r/team-1?mode=view`
 
 ## Configuration
 - `PORT` (server): default `4000`

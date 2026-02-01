@@ -12,6 +12,7 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - Optional disk persistence (`PERSIST=1`)
 - Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`)
 - Recent rooms list (localStorage)
+- View-only mode via `?mode=view`
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -31,6 +32,7 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Optional persistence cleanup controls (`PERSIST_MAX_ROOMS`, `PERSIST_TTL_DAYS`).
 - Undo/redo for your own strokes (synced).
 - Recent rooms list (localStorage).
+- View-only mode via `?mode=view`.
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next

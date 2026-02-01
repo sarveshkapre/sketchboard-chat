@@ -146,6 +146,9 @@ io.on('connection', async (socket) => {
   }
   socket.join(roomId)
 
+  const isViewOnly =
+    socket.handshake.auth?.mode === 'view' || socket.handshake.query?.mode === 'view'
+
   const user = {
     id: socket.id,
     name: randomName(),
@@ -163,6 +166,7 @@ io.on('connection', async (socket) => {
     messages: room.messages,
     users: snapshotUsers(room),
     selfId: socket.id,
+    viewOnly: isViewOnly,
   })
 
   broadcastPresence(roomId, room)
@@ -185,6 +189,7 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('stroke:add', (stroke) => {
+    if (isViewOnly) return
     const limit = strokeLimiter.check()
     if (!limit.allowed) {
       socket.emit('notice', {
@@ -213,6 +218,7 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('stroke:undo', () => {
+    if (isViewOnly) return
     const limit = historyLimiter.check()
     if (!limit.allowed) {
       socket.emit('notice', {
@@ -233,6 +239,7 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('stroke:redo', () => {
+    if (isViewOnly) return
     const limit = historyLimiter.check()
     if (!limit.allowed) {
       socket.emit('notice', {
@@ -256,6 +263,7 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('board:clear', () => {
+    if (isViewOnly) return
     const limit = clearLimiter.check()
     if (!limit.allowed) {
       socket.emit('notice', {
@@ -272,6 +280,7 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('chat:message', (message) => {
+    if (isViewOnly) return
     const limit = chatLimiter.check()
     if (!limit.allowed) {
       socket.emit('notice', {

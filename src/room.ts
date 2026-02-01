@@ -25,6 +25,12 @@ export function getRoomIdFromUrl(url: string) {
   return DEFAULT_ROOM_ID
 }
 
+export function isViewOnlyFromUrl(url: string) {
+  const parsed = new URL(url)
+  const mode = (parsed.searchParams.get('mode') || '').toLowerCase()
+  return mode === 'view' || mode === 'readonly' || mode === 'read'
+}
+
 export function buildRoomUrl(currentUrl: string, roomId: string) {
   const parsed = new URL(currentUrl)
   const normalized = normalizeRoomId(roomId)
@@ -36,4 +42,10 @@ export function buildRoomUrl(currentUrl: string, roomId: string) {
     parsed.pathname = `/r/${encodeURIComponent(normalized)}`
   }
   return parsed.toString()
+}
+
+export function buildViewUrl(currentUrl: string, roomId: string) {
+  const url = new URL(buildRoomUrl(currentUrl, roomId))
+  url.searchParams.set('mode', 'view')
+  return url.toString()
 }

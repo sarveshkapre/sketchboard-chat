@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildRoomUrl, getRoomIdFromUrl, normalizeRoomId } from '../src/room'
+import {
+  buildRoomUrl,
+  buildViewUrl,
+  getRoomIdFromUrl,
+  isViewOnlyFromUrl,
+  normalizeRoomId,
+} from '../src/room'
 
 describe('room', () => {
   it('normalizes room ids', () => {
@@ -21,5 +27,14 @@ describe('room', () => {
 
     const mainUrl = buildRoomUrl('http://localhost:5173/r/other', 'main')
     expect(mainUrl).toBe('http://localhost:5173/')
+  })
+
+  it('detects view-only mode and builds view urls', () => {
+    expect(isViewOnlyFromUrl('http://localhost:5173/r/team-1?mode=view')).toBe(true)
+    expect(isViewOnlyFromUrl('http://localhost:5173/r/team-1?mode=readonly')).toBe(true)
+    expect(isViewOnlyFromUrl('http://localhost:5173/r/team-1')).toBe(false)
+
+    const url = buildViewUrl('http://localhost:5173/r/team-1', 'team-1')
+    expect(url).toBe('http://localhost:5173/r/team-1?mode=view')
   })
 })
