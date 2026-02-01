@@ -7,6 +7,7 @@
 - SVG export for vector sketches.
 - Basic server-side rate limits for chat/drawing spam.
 - Optional disk persistence for rooms (`PERSIST=1`).
+- Undo/redo for your own strokes (synced to everyone).
 - Presence/chat UX improvements (cursor deltas, throttled cursor emits, author metadata, chat autoscroll).
 
 ## [0.1.0] - 2026-02-01

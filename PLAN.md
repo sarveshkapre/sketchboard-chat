@@ -25,9 +25,10 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Basic server-side rate limiting for spam resistance.
 - Clean, shareable room URLs via `/r/<room>`.
 - Optional disk persistence for rooms (`PERSIST=1`).
+- Undo/redo for your own strokes (synced).
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next
-- Lightweight persistence (disk or SQLite) behind a flag.
-- Undo/redo + stroke grouping.
 - Optional: readonly/share links and "spectator" mode.
+- Stroke grouping by user (for better undo UX).
+- Persistence caps/cleanup (prevent disk growth).

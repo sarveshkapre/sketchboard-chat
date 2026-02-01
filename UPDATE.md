@@ -7,6 +7,7 @@
 - SVG export (downloads vector strokes).
 - Basic server-side rate limiting for chat/draw/clear spam.
 - Optional disk persistence for rooms (`PERSIST=1`).
+- Undo/redo for your own strokes (synced).
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified

@@ -15,6 +15,7 @@ import {
 } from './validation.mjs'
 import { createFixedWindowRateLimiter } from './rate-limit.mjs'
 import { createRoomPersistence } from './persistence.mjs'
+import { clearRedoStack, redoLastStroke, undoLastStroke } from './stroke-history.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -80,6 +81,7 @@ function createRoomState() {
     strokes: [],
     messages: [],
     users: new Map(),
+    redoByUser: new Map(),
     hydrated: false,
     hydratePromise: null,
   }
@@ -173,6 +175,10 @@ io.on('connection', async (socket) => {
     windowMs: RATE_LIMITS.clearWindowMs,
     max: RATE_LIMITS.clearMax,
   })
+  const historyLimiter = createFixedWindowRateLimiter({
+    windowMs: 1000,
+    max: 12,
+  })
 
   socket.on('stroke:add', (stroke) => {
     const limit = strokeLimiter.check()
@@ -186,12 +192,63 @@ io.on('connection', async (socket) => {
     }
     const sanitized = sanitizeStroke(stroke, LIMITS)
     if (!sanitized) return
-    room.strokes.push(sanitized)
+    clearRedoStack(room.redoByUser, socket.id)
+    const entry = {
+      ...sanitized,
+      userId: socket.id,
+      userName: user.name,
+      userColor: user.color,
+    }
+
+    room.strokes.push(entry)
     if (room.strokes.length > LIMITS.maxStrokes) {
       room.strokes.shift()
     }
     persistence.scheduleSave(roomId, room)
-    socket.to(roomId).emit('stroke:add', sanitized)
+    socket.to(roomId).emit('stroke:add', entry)
+  })
+
+  socket.on('stroke:undo', () => {
+    const limit = historyLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'stroke',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
+
+    const removed = undoLastStroke(room.strokes, room.redoByUser, socket.id)
+    if (!removed) {
+      socket.emit('notice', { kind: 'info', message: 'Nothing to undo.' })
+      return
+    }
+    persistence.scheduleSave(roomId, room)
+    io.to(roomId).emit('stroke:remove', { id: removed.id })
+  })
+
+  socket.on('stroke:redo', () => {
+    const limit = historyLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'stroke',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
+
+    const restored = redoLastStroke(room.strokes, room.redoByUser, socket.id)
+    if (!restored) {
+      socket.emit('notice', { kind: 'info', message: 'Nothing to redo.' })
+      return
+    }
+    if (room.strokes.length > LIMITS.maxStrokes) {
+      room.strokes.shift()
+    }
+    persistence.scheduleSave(roomId, room)
+    io.to(roomId).emit('stroke:add', restored)
   })
 
   socket.on('board:clear', () => {
@@ -205,6 +262,7 @@ io.on('connection', async (socket) => {
       return
     }
     room.strokes = []
+    room.redoByUser.clear()
     persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('board:clear')
   })
@@ -253,6 +311,7 @@ io.on('connection', async (socket) => {
 
   socket.on('disconnect', () => {
     room.users.delete(socket.id)
+    room.redoByUser.delete(socket.id)
     broadcastPresence(roomId, room)
     if (room.users.size === 0) {
       void persistence.flush(roomId, room).catch(() => {})

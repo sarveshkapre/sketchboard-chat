@@ -20,6 +20,7 @@ Deliver a realtime sketchboard with chat, presence, and PNG export for quick dem
 - [x] Room support via `?room=...`
 - [x] Basic server-side rate limits
 - [x] Optional disk persistence (`PERSIST=1`)
+- [x] Undo/redo for your own strokes
 - [x] CI + lint/typecheck/test/build
 
 ## Risks

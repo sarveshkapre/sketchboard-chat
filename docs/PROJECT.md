@@ -21,6 +21,6 @@ Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also su
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Add undo/redo + per-user stroke grouping.
+1. Add per-user stroke grouping (better undo UX).
 2. Add per-room persistence caps and cleanup (prevent disk growth).
 3. Add a basic admin endpoint for room metrics (counts, sizes).

@@ -13,6 +13,9 @@ type Stroke = {
   size: number
   tool: 'pen' | 'eraser'
   points: Point[]
+  userId?: string
+  userName?: string
+  userColor?: string
 }
 
 type ChatMessage = {
@@ -55,6 +58,13 @@ const LIMITS = {
   maxStrokePoints: 2000,
   maxMessages: 200,
   maxStrokes: 1000,
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!target) return false
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName.toLowerCase()
+  return tag === 'input' || tag === 'textarea' || target.isContentEditable
 }
 
 function getSocketUrl() {
@@ -189,6 +199,16 @@ function App() {
       if (ctx) drawStroke(ctx, stroke)
     })
 
+    socket.on('stroke:remove', (payload: { id: string }) => {
+      const id = payload?.id
+      if (!id) return
+      const next = strokesRef.current.filter((stroke) => stroke.id !== id)
+      if (next.length === strokesRef.current.length) return
+      strokesRef.current = next
+      const ctx = canvasRef.current?.getContext('2d')
+      if (ctx) drawAll(ctx, next)
+    })
+
     socket.on('board:clear', () => {
       strokesRef.current = []
       const ctx = canvasRef.current?.getContext('2d')
@@ -240,6 +260,32 @@ function App() {
     return () => window.clearTimeout(timeout)
   }, [toast])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return
+      if (!socketRef.current?.connected) return
+
+      const isUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z'
+      const isRedo =
+        (event.metaKey || event.ctrlKey) &&
+        (event.key.toLowerCase() === 'y' ||
+          (event.shiftKey && event.key.toLowerCase() === 'z'))
+
+      if (!isUndo && !isRedo) return
+      event.preventDefault()
+      if (drawingRef.current) return
+
+      if (isRedo) {
+        socketRef.current.emit('stroke:redo')
+      } else {
+        socketRef.current.emit('stroke:undo')
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -281,6 +327,16 @@ function App() {
 
   const handleClear = () => {
     socketRef.current?.emit('board:clear')
+  }
+
+  const handleUndo = () => {
+    if (drawingRef.current) return
+    socketRef.current?.emit('stroke:undo')
+  }
+
+  const handleRedo = () => {
+    if (drawingRef.current) return
+    socketRef.current?.emit('stroke:redo')
   }
 
   const handleExport = () => {
@@ -399,6 +455,12 @@ function App() {
               ))}
             </div>
             <div className="tool-group actions">
+              <button onClick={handleUndo} title="Undo (⌘/Ctrl+Z)">
+                Undo
+              </button>
+              <button onClick={handleRedo} title="Redo (⇧⌘Z / Ctrl+Y)">
+                Redo
+              </button>
               <button onClick={handleClear}>Clear</button>
               <button onClick={handleExport}>Export PNG</button>
               <button onClick={handleExportSvg}>Export SVG</button>
