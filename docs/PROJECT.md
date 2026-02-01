@@ -16,6 +16,7 @@ View-only mode: append `?mode=view` (disables drawing + chat).
 ## Environment
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod)
+- `ADMIN_TOKEN` (server): optional bearer token for admin endpoints (e.g. `/api/rooms`)
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
 - `PERSIST_DIR` (server): persistence directory (default `./data`)
 - `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)

@@ -15,6 +15,7 @@ import {
 } from './validation.mjs'
 import { createFixedWindowRateLimiter } from './rate-limit.mjs'
 import { createRoomPersistence } from './persistence.mjs'
+import { snapshotRooms } from './rooms-metrics.mjs'
 import { clearRedoStack, redoLastStroke, undoLastStroke } from './stroke-history.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -125,6 +126,25 @@ function broadcastPresence(roomId, room) {
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
+})
+
+function getAdminToken() {
+  const token = process.env.ADMIN_TOKEN
+  return typeof token === 'string' && token.trim() ? token.trim() : null
+}
+
+app.get('/api/rooms', (req, res) => {
+  const token = getAdminToken()
+  if (token) {
+    const header = req.header('authorization') || ''
+    const value = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
+    if (value !== token) {
+      res.status(401).json({ error: 'unauthorized' })
+      return
+    }
+  }
+
+  res.json({ rooms: snapshotRooms(rooms) })
 })
 
 const distPath = path.resolve(__dirname, '../dist')

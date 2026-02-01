@@ -13,6 +13,7 @@
 - Undo/redo (per-user).
 - Recent rooms list (local).
 - View-only mode (`?mode=view`).
+- Admin room metrics endpoint (`GET /api/rooms`).
 
 ## Later
 - Image import + stickers.
