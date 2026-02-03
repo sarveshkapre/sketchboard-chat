@@ -21,6 +21,7 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - User profile updates (name + color)
 - Room roles (owner/mod) with in-room moderation
 - Stable user identity for role persistence (local key)
+- Room activity log for moderation changes
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -49,8 +50,10 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - User profile updates (name + color).
 - Room roles (owner/mod) with in-room moderation.
 - Stable user identity for role persistence (local key).
+- Room activity log for moderation changes.
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next
 - Optional: readonly/share links and "spectator" mode.
 - Stroke grouping by user (for better undo UX).
+- Chat reactions and message pinning.

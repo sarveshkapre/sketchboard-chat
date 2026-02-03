@@ -14,6 +14,7 @@ import {
   sanitizeStroke,
   sanitizeUserProfile,
 } from './validation.mjs'
+import { appendAuditEvent, createAuditEntry, MAX_AUDIT_EVENTS } from './audit.mjs'
 import { createFixedWindowRateLimiter } from './rate-limit.mjs'
 import { createRoomPersistence } from './persistence.mjs'
 import { snapshotRooms } from './rooms-metrics.mjs'
@@ -63,7 +64,11 @@ const persistence = createRoomPersistence({
   maxAgeMs: process.env.PERSIST_TTL_DAYS
     ? Number(process.env.PERSIST_TTL_DAYS) * 24 * 60 * 60 * 1000
     : null,
-  limits: { maxStrokes: LIMITS.maxStrokes, maxMessages: LIMITS.maxMessages },
+  limits: {
+    maxStrokes: LIMITS.maxStrokes,
+    maxMessages: LIMITS.maxMessages,
+    maxAudit: MAX_AUDIT_EVENTS,
+  },
 })
 
 const CURSOR_BROADCAST_MIN_INTERVAL_MS = 33
@@ -100,6 +105,7 @@ function createRoomState() {
   return {
     strokes: [],
     messages: [],
+    audit: [],
     users: new Map(),
     redoByUser: new Map(),
     locked: false,
@@ -121,6 +127,11 @@ function getRoom(roomId) {
         if (loaded) {
           created.strokes = loaded.strokes
           created.messages = loaded.messages
+          if (Array.isArray(loaded.audit)) {
+            created.audit = loaded.audit.filter(
+              (entry) => entry && typeof entry.id === 'string' && typeof entry.text === 'string',
+            )
+          }
           if (Array.isArray(loaded.rolesByKey)) {
             created.rolesByKey = new Map(
               loaded.rolesByKey.filter(
@@ -146,6 +157,30 @@ function getRoom(roomId) {
 
 function snapshotUsers(room) {
   return Array.from(room.users.values(), toPublicUser)
+}
+
+function findUserByKey(room, userKey) {
+  if (!room?.users || !userKey) return null
+  for (const user of room.users.values()) {
+    if (user?.userKey === userKey) return user
+  }
+  return null
+}
+
+function emitAudit(roomId, room) {
+  io.to(roomId).emit('room:audit', { entries: Array.isArray(room.audit) ? room.audit : [] })
+}
+
+function addAudit(roomId, room, entry) {
+  appendAuditEvent(room, entry)
+  emitAudit(roomId, room)
+  persistence.scheduleSave(roomId, room)
+}
+
+function recordOwnerChange(roomId, room, previousOwnerKey) {
+  if (!room.ownerKey || room.ownerKey === previousOwnerKey) return
+  const owner = findUserByKey(room, room.ownerKey)
+  addAudit(roomId, room, createAuditEntry({ kind: 'owner', target: owner }))
 }
 
 function broadcastPresence(roomId, room) {
@@ -214,10 +249,24 @@ app.post('/api/rooms/:roomId/kick/:userId', (req, res) => {
     return
   }
 
+  const targetUser = room.users.get(userId)
+  if (!targetUser) {
+    res.status(404).json({ error: 'user_not_found' })
+    return
+  }
+
+  addAudit(
+    roomId,
+    room,
+    createAuditEntry({ kind: 'kick', actor: { name: 'Admin' }, target: targetUser }),
+  )
+
   const socket = io.sockets.sockets.get(userId)
   if (!socket) {
+    const previousOwnerKey = room.ownerKey
     room.users.delete(userId)
     ensureOwner(room)
+    recordOwnerChange(roomId, room, previousOwnerKey)
     broadcastPresence(roomId, room)
     res.json({ ok: true, alreadyDisconnected: true })
     return
@@ -250,6 +299,7 @@ app.post('/api/rooms/:roomId/lock', (req, res) => {
     res.status(404).json({ error: 'room_not_found' })
     return
   }
+  addAudit(roomId, room, createAuditEntry({ kind: 'lock', actor: { name: 'Admin' } }))
   res.json({ ok: true, locked: true })
 })
 
@@ -270,6 +320,7 @@ app.post('/api/rooms/:roomId/unlock', (req, res) => {
     res.status(404).json({ error: 'room_not_found' })
     return
   }
+  addAudit(roomId, room, createAuditEntry({ kind: 'unlock', actor: { name: 'Admin' } }))
   res.json({ ok: true, locked: false })
 })
 
@@ -317,6 +368,7 @@ io.on('connection', async (socket) => {
   }
 
   room.users.set(socket.id, user)
+  const previousOwnerKey = room.ownerKey
   const existingRole = isViewOnly ? ROLE_MEMBER : getRole(room, userKey)
   if (!isViewOnly && existingRole === ROLE_OWNER) {
     room.ownerKey = userKey
@@ -327,12 +379,14 @@ io.on('connection', async (socket) => {
     user.role = existingRole
   }
   ensureOwner(room)
+  recordOwnerChange(roomId, room, previousOwnerKey)
   persistence.scheduleSave(roomId, room)
 
   socket.emit('init', {
     roomId,
     strokes: room.strokes,
     messages: room.messages,
+    audit: Array.isArray(room.audit) ? room.audit : [],
     users: snapshotUsers(room),
     selfId: socket.id,
     viewOnly: isViewOnly,
@@ -404,7 +458,7 @@ io.on('connection', async (socket) => {
     }
     room.locked = true
     io.to(roomId).emit('room:lock', { locked: true })
-    persistence.scheduleSave(roomId, room)
+    addAudit(roomId, room, createAuditEntry({ kind: 'lock', actor: user }))
   })
 
   socket.on('room:unlock', () => {
@@ -416,7 +470,7 @@ io.on('connection', async (socket) => {
     }
     room.locked = false
     io.to(roomId).emit('room:lock', { locked: false })
-    persistence.scheduleSave(roomId, room)
+    addAudit(roomId, room, createAuditEntry({ kind: 'unlock', actor: user }))
   })
 
   socket.on('room:kick', (payload) => {
@@ -440,12 +494,19 @@ io.on('connection', async (socket) => {
       return
     }
 
+    addAudit(
+      roomId,
+      room,
+      createAuditEntry({ kind: 'kick', actor: user, target: targetUser }),
+    )
+
     const targetSocket = io.sockets.sockets.get(targetId)
     if (!targetSocket) {
+      const previousOwnerKey = room.ownerKey
       room.users.delete(targetId)
       ensureOwner(room)
+      recordOwnerChange(roomId, room, previousOwnerKey)
       broadcastPresence(roomId, room)
-      persistence.scheduleSave(roomId, room)
       return
     }
     targetSocket.emit('notice', { kind: 'info', message: 'You were removed from the room.' })
@@ -481,7 +542,11 @@ io.on('connection', async (socket) => {
 
     setRole(room, targetUser.userKey, nextRole)
     broadcastPresence(roomId, room)
-    persistence.scheduleSave(roomId, room)
+    addAudit(
+      roomId,
+      room,
+      createAuditEntry({ kind: 'role', actor: user, target: targetUser, role: nextRole }),
+    )
   })
   socket.on('stroke:undo', () => {
     if (room.locked) {
@@ -631,7 +696,9 @@ io.on('connection', async (socket) => {
   socket.on('disconnect', () => {
     room.users.delete(socket.id)
     room.redoByUser.delete(socket.id)
+    const previousOwnerKey = room.ownerKey
     ensureOwner(room)
+    recordOwnerChange(roomId, room, previousOwnerKey)
     broadcastPresence(roomId, room)
     if (room.users.size === 0) {
       void persistence.flush(roomId, room).catch(() => {})

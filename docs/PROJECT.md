@@ -13,6 +13,7 @@
 Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
 View-only mode: append `?mode=view` (disables drawing + chat).
 The first non-view-only user becomes room owner and can promote moderators.
+Moderation actions (lock, kick, role changes) appear in the room activity log.
 
 ## Environment
 - `PORT` (server): default `4000`

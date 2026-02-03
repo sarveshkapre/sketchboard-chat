@@ -36,6 +36,13 @@ type ChatMessage = {
   createdAt: string
 }
 
+type AuditEntry = {
+  id: string
+  at: string
+  text: string
+  kind?: 'lock' | 'unlock' | 'kick' | 'role' | 'owner'
+}
+
 type PresenceUser = {
   id: string
   name: string
@@ -131,6 +138,7 @@ function App() {
   const [roomLocked, setRoomLocked] = useState(false)
   const [users, setUsers] = useState<PresenceUser[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
   const [color, setColor] = useState(COLORS[0])
   const [size, setSize] = useState(SIZES[1])
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
@@ -157,6 +165,7 @@ function App() {
   const canModerate = !viewOnly && (selfRole === 'owner' || selfRole === 'mod')
   const canManageRoles = !viewOnly && selfRole === 'owner'
   const canEdit = !viewOnly && !roomLocked
+  const recentAudit = useMemo(() => auditEntries.slice(-8).reverse(), [auditEntries])
 
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
@@ -216,6 +225,9 @@ function App() {
         setRoomLocked(payload.locked)
       }
       setUsers(payload.users)
+      if (Array.isArray(payload.audit)) {
+        setAuditEntries(payload.audit)
+      }
       const me = payload.users?.find?.((user: PresenceUser) => user.id === payload.selfId)
       if (me) {
         setProfileName(me.name)
@@ -272,6 +284,12 @@ function App() {
         } else {
           setToast('Room unlocked.')
         }
+      }
+    })
+
+    socket.on('room:audit', (payload: { entries?: AuditEntry[] }) => {
+      if (Array.isArray(payload?.entries)) {
+        setAuditEntries(payload.entries)
       }
     })
 
@@ -948,6 +966,24 @@ function App() {
                 </li>
               ))}
             </ul>
+          </div>
+          <div className="panel-block audit">
+            <h3>Room activity</h3>
+            {recentAudit.length === 0 ? (
+              <p className="muted">No moderation activity yet.</p>
+            ) : (
+              <ul className="audit-list">
+                {recentAudit.map((entry) => (
+                  <li key={entry.id} className="audit-item">
+                    <div>
+                      <p>{entry.text}</p>
+                      <p className="muted">{formatTime(entry.at)}</p>
+                    </div>
+                    {entry.kind ? <span className={`audit-kind ${entry.kind}`}>{entry.kind}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="panel-block chat">
             <h3>Chat</h3>

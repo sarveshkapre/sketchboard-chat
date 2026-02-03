@@ -43,7 +43,8 @@ export function createRoomPersistence(options) {
   const enabled = Boolean(options?.enabled)
   const dir = String(options?.dir || '')
   const debounceMs = Number.isFinite(options?.debounceMs) ? Math.max(50, options.debounceMs) : 400
-  const limits = options?.limits || { maxStrokes: 1000, maxMessages: 200 }
+  const limits = options?.limits || { maxStrokes: 1000, maxMessages: 200, maxAudit: 40 }
+  const maxAudit = Number.isFinite(limits?.maxAudit) ? Math.max(1, limits.maxAudit) : 40
   const maxRooms = Number.isFinite(options?.maxRooms) ? Math.max(1, options.maxRooms) : null
   const maxAgeMs = Number.isFinite(options?.maxAgeMs) ? Math.max(1, options.maxAgeMs) : null
 
@@ -124,10 +125,19 @@ export function createRoomPersistence(options) {
 
     const strokes = asArray(parsed.strokes).slice(-limits.maxStrokes)
     const messages = asArray(parsed.messages).slice(-limits.maxMessages)
+    const audit = asArray(parsed.audit)
+      .filter((entry) => entry && typeof entry === 'object')
+      .filter(
+        (entry) =>
+          typeof entry.id === 'string' &&
+          typeof entry.at === 'string' &&
+          typeof entry.text === 'string',
+      )
+      .slice(-maxAudit)
     const rolesByKey = Array.isArray(parsed.rolesByKey) ? parsed.rolesByKey : []
     const ownerKey = typeof parsed.ownerKey === 'string' ? parsed.ownerKey : null
 
-    return { strokes, messages, rolesByKey, ownerKey }
+    return { strokes, messages, audit, rolesByKey, ownerKey }
   }
 
   async function saveNow(roomId, room) {
@@ -141,6 +151,7 @@ export function createRoomPersistence(options) {
       savedAt: new Date().toISOString(),
       strokes: asArray(room?.strokes).slice(-limits.maxStrokes),
       messages: asArray(room?.messages).slice(-limits.maxMessages),
+      audit: asArray(room?.audit).slice(-maxAudit),
       rolesByKey,
       ownerKey: typeof room?.ownerKey === 'string' ? room.ownerKey : null,
     }

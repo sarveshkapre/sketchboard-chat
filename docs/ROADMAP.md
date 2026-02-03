@@ -19,7 +19,7 @@
 - Room lock/unlock (admin).
 - User profile updates (name + color).
 - Room roles (owner/mod) with in-room moderation.
-- Room roles (owner/mod) with in-room moderation.
+- Room activity log for moderation changes.
 
 ## Later
 - Image import + stickers.

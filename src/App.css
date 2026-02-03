@@ -507,6 +507,58 @@ canvas {
   cursor: pointer;
 }
 
+.audit-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audit-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.audit-item p {
+  margin: 0;
+}
+
+.audit-kind {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+}
+
+.audit-kind.lock,
+.audit-kind.unlock {
+  background: rgba(77, 150, 255, 0.2);
+  color: #cbd8ff;
+}
+
+.audit-kind.kick {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ffd1d1;
+}
+
+.audit-kind.role,
+.audit-kind.owner {
+  background: rgba(107, 203, 119, 0.2);
+  color: #d0ffd9;
+}
+
 .avatar {
   width: 36px;
   height: 36px;

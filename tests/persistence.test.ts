@@ -14,12 +14,17 @@ describe('persistence', () => {
         enabled: true,
         dir,
         debounceMs: 50,
-        limits: { maxStrokes: 2, maxMessages: 2 },
+        limits: { maxStrokes: 2, maxMessages: 2, maxAudit: 2 },
       })
 
       const room = {
         strokes: [{ id: 's1' }, { id: 's2' }, { id: 's3' }],
         messages: [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }],
+        audit: [
+          { id: 'a1', at: '2026-01-01T00:00:00.000Z', text: 'First' },
+          { id: 'a2', at: '2026-01-01T00:00:01.000Z', text: 'Second' },
+          { id: 'a3', at: '2026-01-01T00:00:02.000Z', text: 'Third' },
+        ],
         rolesByKey: new Map([
           ['u1', 'owner'],
           ['u2', 'mod'],
@@ -32,6 +37,7 @@ describe('persistence', () => {
 
       expect(loaded?.strokes.map((s) => s.id)).toEqual(['s2', 's3'])
       expect(loaded?.messages.map((m) => m.id)).toEqual(['m2', 'm3'])
+      expect(loaded?.audit?.map((entry) => entry.id)).toEqual(['a2', 'a3'])
       expect(loaded?.ownerKey).toBe('u1')
       expect(loaded?.rolesByKey).toEqual([
         ['u1', 'owner'],
@@ -49,7 +55,7 @@ describe('persistence', () => {
         enabled: true,
         dir,
         debounceMs: 50,
-        limits: { maxStrokes: 2, maxMessages: 2 },
+        limits: { maxStrokes: 2, maxMessages: 2, maxAudit: 2 },
         maxRooms: 2,
         maxAgeMs: 1000,
       })

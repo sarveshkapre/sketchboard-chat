@@ -1,4 +1,4 @@
-# Update (2026-02-01)
+# Update (2026-02-03)
 
 ## Shipped
 - Room-based sessions via `?room=...` (separate boards per room).
@@ -19,6 +19,7 @@
 - User profile updates (name + color).
 - Room roles (owner/mod) with in-room moderation.
 - Stable user identity for role persistence (local key).
+- Room activity log for moderation changes.
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified
