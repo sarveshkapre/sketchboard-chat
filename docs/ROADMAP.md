@@ -1,7 +1,7 @@
 # ROADMAP
 
 ## Near-term
-- Chat reactions and message pinning.
+- Room settings drawer (lock, invite, roles).
 
 ## Done
 - Room-based sessions.
@@ -20,6 +20,7 @@
 - User profile updates (name + color).
 - Room roles (owner/mod) with in-room moderation.
 - Room activity log for moderation changes.
+- Chat reactions and pinned messages.
 
 ## Later
 - Image import + stickers.

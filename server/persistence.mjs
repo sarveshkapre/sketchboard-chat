@@ -13,6 +13,18 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
+function normalizeMessage(value) {
+  if (!value || typeof value !== 'object') return null
+  const id = typeof value.id === 'string' ? value.id : ''
+  const text = typeof value.text === 'string' ? value.text : ''
+  const userId = typeof value.userId === 'string' ? value.userId : ''
+  const userName = typeof value.userName === 'string' ? value.userName : ''
+  const userColor = typeof value.userColor === 'string' ? value.userColor : ''
+  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : ''
+  if (!id || !text || !createdAt) return null
+  return { id, text, userId, userName, userColor, createdAt }
+}
+
 async function pathExists(filePath) {
   try {
     await fs.access(filePath)
@@ -124,7 +136,10 @@ export function createRoomPersistence(options) {
     if (!parsed || typeof parsed !== 'object') return null
 
     const strokes = asArray(parsed.strokes).slice(-limits.maxStrokes)
-    const messages = asArray(parsed.messages).slice(-limits.maxMessages)
+    const messages = asArray(parsed.messages)
+      .map(normalizeMessage)
+      .filter(Boolean)
+      .slice(-limits.maxMessages)
     const audit = asArray(parsed.audit)
       .filter((entry) => entry && typeof entry === 'object')
       .filter(
@@ -136,8 +151,12 @@ export function createRoomPersistence(options) {
       .slice(-maxAudit)
     const rolesByKey = Array.isArray(parsed.rolesByKey) ? parsed.rolesByKey : []
     const ownerKey = typeof parsed.ownerKey === 'string' ? parsed.ownerKey : null
+    let pinnedId = typeof parsed.pinnedId === 'string' ? parsed.pinnedId : null
+    if (pinnedId && !messages.some((message) => message.id === pinnedId)) {
+      pinnedId = null
+    }
 
-    return { strokes, messages, audit, rolesByKey, ownerKey }
+    return { strokes, messages, audit, rolesByKey, ownerKey, pinnedId }
   }
 
   async function saveNow(roomId, room) {
@@ -150,10 +169,14 @@ export function createRoomPersistence(options) {
       version: 1,
       savedAt: new Date().toISOString(),
       strokes: asArray(room?.strokes).slice(-limits.maxStrokes),
-      messages: asArray(room?.messages).slice(-limits.maxMessages),
+      messages: asArray(room?.messages)
+        .map(normalizeMessage)
+        .filter(Boolean)
+        .slice(-limits.maxMessages),
       audit: asArray(room?.audit).slice(-maxAudit),
       rolesByKey,
       ownerKey: typeof room?.ownerKey === 'string' ? room.ownerKey : null,
+      pinnedId: typeof room?.pinnedId === 'string' ? room.pinnedId : null,
     }
     await atomicWriteJson(filePath, snapshot)
     scheduleCleanup()

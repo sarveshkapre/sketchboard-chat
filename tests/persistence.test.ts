@@ -19,7 +19,11 @@ describe('persistence', () => {
 
       const room = {
         strokes: [{ id: 's1' }, { id: 's2' }, { id: 's3' }],
-        messages: [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }],
+        messages: [
+          { id: 'm1', text: 'one', createdAt: '2026-01-01T00:00:00.000Z', reactions: { '👍': ['u1'] } },
+          { id: 'm2', text: 'two', createdAt: '2026-01-01T00:00:01.000Z' },
+          { id: 'm3', text: 'three', createdAt: '2026-01-01T00:00:02.000Z' },
+        ],
         audit: [
           { id: 'a1', at: '2026-01-01T00:00:00.000Z', text: 'First' },
           { id: 'a2', at: '2026-01-01T00:00:01.000Z', text: 'Second' },
@@ -30,6 +34,7 @@ describe('persistence', () => {
           ['u2', 'mod'],
         ]),
         ownerKey: 'u1',
+        pinnedId: 'm2',
       }
 
       await persistence.saveNow('room-1', room)
@@ -37,8 +42,10 @@ describe('persistence', () => {
 
       expect(loaded?.strokes.map((s) => s.id)).toEqual(['s2', 's3'])
       expect(loaded?.messages.map((m) => m.id)).toEqual(['m2', 'm3'])
+      expect(loaded?.messages[0]?.reactions).toBeUndefined()
       expect(loaded?.audit?.map((entry) => entry.id)).toEqual(['a2', 'a3'])
       expect(loaded?.ownerKey).toBe('u1')
+      expect(loaded?.pinnedId).toBe('m2')
       expect(loaded?.rolesByKey).toEqual([
         ['u1', 'owner'],
         ['u2', 'mod'],

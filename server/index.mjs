@@ -10,6 +10,8 @@ import {
   parseCorsOrigin,
   sanitizeChatMessage,
   sanitizeCursor,
+  sanitizeMessageId,
+  sanitizeReaction,
   sanitizeRoomId,
   sanitizeStroke,
   sanitizeUserProfile,
@@ -75,6 +77,8 @@ const CURSOR_BROADCAST_MIN_INTERVAL_MS = 33
 const RATE_LIMITS = {
   chatWindowMs: 8000,
   chatMax: 8,
+  reactionWindowMs: 4000,
+  reactionMax: 12,
   strokeWindowMs: 1000,
   strokeMax: 40,
   clearWindowMs: 5000,
@@ -84,6 +88,7 @@ const RATE_LIMITS = {
 }
 
 const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b5de5']
+const REACTIONS = ['👍', '❤️', '😂', '🎉', '👀']
 
 function randomName() {
   const animals = ['Fox', 'Otter', 'Lynx', 'Panda', 'Hawk', 'Koala', 'Tiger']
@@ -106,6 +111,7 @@ function createRoomState() {
     strokes: [],
     messages: [],
     audit: [],
+    pinnedId: null,
     users: new Map(),
     redoByUser: new Map(),
     locked: false,
@@ -141,6 +147,9 @@ function getRoom(roomId) {
           }
           if (typeof loaded.ownerKey === 'string') {
             created.ownerKey = loaded.ownerKey
+          }
+          if (typeof loaded.pinnedId === 'string') {
+            created.pinnedId = loaded.pinnedId
           }
         }
       })
@@ -387,6 +396,7 @@ io.on('connection', async (socket) => {
     strokes: room.strokes,
     messages: room.messages,
     audit: Array.isArray(room.audit) ? room.audit : [],
+    pinnedId: room.pinnedId ?? null,
     users: snapshotUsers(room),
     selfId: socket.id,
     viewOnly: isViewOnly,
@@ -402,6 +412,10 @@ io.on('connection', async (socket) => {
   const strokeLimiter = createFixedWindowRateLimiter({
     windowMs: RATE_LIMITS.strokeWindowMs,
     max: RATE_LIMITS.strokeMax,
+  })
+  const reactionLimiter = createFixedWindowRateLimiter({
+    windowMs: RATE_LIMITS.reactionWindowMs,
+    max: RATE_LIMITS.reactionMax,
   })
   const clearLimiter = createFixedWindowRateLimiter({
     windowMs: RATE_LIMITS.clearWindowMs,
@@ -646,13 +660,77 @@ io.on('connection', async (socket) => {
       userName: user.name,
       userColor: user.color,
       createdAt: new Date().toISOString(),
+      reactions: {},
     }
     room.messages.push(entry)
     if (room.messages.length > LIMITS.maxMessages) {
-      room.messages.shift()
+      const removed = room.messages.shift()
+      if (removed?.id && room.pinnedId === removed.id) {
+        room.pinnedId = null
+        io.to(roomId).emit('chat:pin', { pinnedId: null })
+      }
     }
     persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('chat:message', entry)
+  })
+
+  socket.on('chat:react', (payload) => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
+    if (isViewOnly) return
+    const limit = reactionLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'reaction',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
+
+    const messageId = sanitizeMessageId(payload?.id)
+    const reaction = sanitizeReaction(payload?.reaction, REACTIONS)
+    if (!messageId || !reaction) return
+
+    const message = room.messages.find((entry) => entry.id === messageId)
+    if (!message) return
+
+    const reactions = message.reactions && typeof message.reactions === 'object' ? message.reactions : {}
+    const list = Array.isArray(reactions[reaction]) ? reactions[reaction].slice() : []
+    const index = list.indexOf(socket.id)
+    if (index >= 0) {
+      list.splice(index, 1)
+    } else {
+      list.push(socket.id)
+    }
+    if (list.length === 0) {
+      delete reactions[reaction]
+    } else {
+      reactions[reaction] = list
+    }
+    message.reactions = reactions
+    persistence.scheduleSave(roomId, room)
+    io.to(roomId).emit('chat:reaction', { id: messageId, reactions })
+  })
+
+  socket.on('chat:pin', (payload) => {
+    if (isViewOnly) return
+    const role = getRole(room, userKey)
+    if (!canModerate(role)) {
+      socket.emit('notice', { kind: 'info', message: 'Only moderators can pin messages.' })
+      return
+    }
+    const messageId = sanitizeMessageId(payload?.id)
+    if (!messageId) return
+    const exists = room.messages.some((entry) => entry.id === messageId)
+    if (!exists) return
+
+    const nextPinnedId = room.pinnedId === messageId ? null : messageId
+    room.pinnedId = nextPinnedId
+    persistence.scheduleSave(roomId, room)
+    io.to(roomId).emit('chat:pin', { pinnedId: nextPinnedId })
   })
 
   socket.on('profile:update', (payload) => {

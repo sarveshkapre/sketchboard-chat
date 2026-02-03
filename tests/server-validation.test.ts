@@ -4,6 +4,8 @@ import {
   parseCorsOrigin,
   sanitizeChatMessage,
   sanitizeCursor,
+  sanitizeMessageId,
+  sanitizeReaction,
   sanitizeUserProfile,
   sanitizeRoomId,
   sanitizeStroke,
@@ -37,6 +39,15 @@ describe('server validation', () => {
     const value = sanitizeChatMessage({ text: '  hello world  ' }, limits)
     expect(value?.text).toBe('hello')
     expect(value?.id.startsWith('msg-')).toBe(true)
+  })
+
+  it('sanitizes message ids and reactions', () => {
+    expect(sanitizeMessageId('  msg-1  ')).toBe('msg-1')
+    expect(sanitizeMessageId(123)).toBe('')
+
+    const allowed = ['👍', '❤️']
+    expect(sanitizeReaction('  👍 ', allowed)).toBe('👍')
+    expect(sanitizeReaction('😂', allowed)).toBe(null)
   })
 
   it('sanitizes user profile updates', () => {

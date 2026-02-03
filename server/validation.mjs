@@ -93,6 +93,18 @@ export function sanitizeChatMessage(input, limits) {
   return { id, text }
 }
 
+export function sanitizeMessageId(value) {
+  return safeTrimString(value, 80)
+}
+
+export function sanitizeReaction(value, allowed = []) {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (allowed.length > 0 && !allowed.includes(trimmed)) return null
+  return trimmed
+}
+
 export function sanitizeUserProfile(input) {
   if (!input || typeof input !== 'object') return null
 

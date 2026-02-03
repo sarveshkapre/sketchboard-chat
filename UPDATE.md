@@ -20,6 +20,7 @@
 - Room roles (owner/mod) with in-room moderation.
 - Stable user identity for role persistence (local key).
 - Room activity log for moderation changes.
+- Chat reactions and pinned messages.
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified

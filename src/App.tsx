@@ -34,6 +34,7 @@ type ChatMessage = {
   userName: string
   userColor: string
   createdAt: string
+  reactions?: Record<string, string[]>
 }
 
 type AuditEntry = {
@@ -60,7 +61,7 @@ type PresenceCursorUpdate = {
 type Notice =
   | {
       kind: 'rate_limited'
-      scope: 'chat' | 'stroke' | 'clear' | 'profile'
+      scope: 'chat' | 'stroke' | 'clear' | 'profile' | 'reaction'
       retryAfterMs: number
     }
   | {
@@ -70,6 +71,7 @@ type Notice =
 
 const COLORS = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b5de5', '#f15bb5']
 const SIZES = [2, 4, 6, 10]
+const REACTIONS = ['👍', '❤️', '😂', '🎉', '👀']
 
 const LIMITS = {
   maxStrokePoints: 2000,
@@ -139,6 +141,7 @@ function App() {
   const [users, setUsers] = useState<PresenceUser[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
+  const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [color, setColor] = useState(COLORS[0])
   const [size, setSize] = useState(SIZES[1])
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
@@ -166,6 +169,10 @@ function App() {
   const canManageRoles = !viewOnly && selfRole === 'owner'
   const canEdit = !viewOnly && !roomLocked
   const recentAudit = useMemo(() => auditEntries.slice(-8).reverse(), [auditEntries])
+  const pinnedMessage = useMemo(
+    () => (pinnedId ? messages.find((message) => message.id === pinnedId) ?? null : null),
+    [messages, pinnedId],
+  )
 
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
@@ -227,6 +234,9 @@ function App() {
       setUsers(payload.users)
       if (Array.isArray(payload.audit)) {
         setAuditEntries(payload.audit)
+      }
+      if (typeof payload.pinnedId === 'string' || payload.pinnedId === null) {
+        setPinnedId(payload.pinnedId ?? null)
       }
       const me = payload.users?.find?.((user: PresenceUser) => user.id === payload.selfId)
       if (me) {
@@ -297,6 +307,21 @@ function App() {
       setMessages((prev) => [...prev, message].slice(-LIMITS.maxMessages))
     })
 
+    socket.on('chat:reaction', (payload: { id?: string; reactions?: Record<string, string[]> }) => {
+      if (!payload?.id) return
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === payload.id ? { ...message, reactions: payload.reactions ?? {} } : message,
+        ),
+      )
+    })
+
+    socket.on('chat:pin', (payload: { pinnedId?: string | null }) => {
+      if (typeof payload?.pinnedId === 'string' || payload?.pinnedId === null) {
+        setPinnedId(payload.pinnedId ?? null)
+      }
+    })
+
     socket.on('notice', (notice: Notice) => {
       if (notice.kind === 'rate_limited') {
         const label =
@@ -306,7 +331,9 @@ function App() {
               ? 'Drawing'
               : notice.scope === 'clear'
                 ? 'Clear'
-                : 'Profile'
+                : notice.scope === 'reaction'
+                  ? 'Reactions'
+                  : 'Profile'
         setToast(`${label} is rate limited — try again in ${Math.ceil(notice.retryAfterMs / 1000)}s.`)
         return
       }
@@ -626,6 +653,16 @@ function App() {
       text: chatInput,
     })
     setChatInput('')
+  }
+
+  const handleReact = (messageId: string, reaction: string) => {
+    if (!canEdit) return
+    socketRef.current?.emit('chat:react', { id: messageId, reaction })
+  }
+
+  const handlePin = (messageId: string) => {
+    if (!canModerate) return
+    socketRef.current?.emit('chat:pin', { id: messageId })
   }
 
   return (
@@ -987,6 +1024,24 @@ function App() {
           </div>
           <div className="panel-block chat">
             <h3>Chat</h3>
+            {pinnedMessage ? (
+              <div className="pinned">
+                <div className="pinned-meta">
+                  <span className="pinned-label">Pinned</span>
+                  <div className="pinned-author">
+                    <span className="badge" style={{ background: pinnedMessage.userColor }} />
+                    <span>{pinnedMessage.userName}</span>
+                  </div>
+                  <span className="muted">{formatTime(pinnedMessage.createdAt)}</span>
+                </div>
+                <p>{pinnedMessage.text}</p>
+                {canModerate ? (
+                  <button type="button" className="pin-toggle" onClick={() => handlePin(pinnedMessage.id)}>
+                    Unpin
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="messages">
               {messages.map((message) => (
                 <div key={message.id} className="message">
@@ -997,8 +1052,40 @@ function App() {
                         style={{ background: message.userColor }}
                       />
                       {message.userName}
+                      {message.id === pinnedId ? <span className="pin-badge">Pinned</span> : null}
                     </p>
                     <p>{message.text}</p>
+                    <div className="message-actions">
+                      <div className="reactions">
+                        {REACTIONS.map((emoji) => {
+                          const list = message.reactions?.[emoji] ?? []
+                          const count = list.length
+                          const active = list.includes(selfId)
+                          return (
+                            <button
+                              key={`${message.id}-${emoji}`}
+                              type="button"
+                              className={active ? 'reaction active' : 'reaction'}
+                              onClick={() => handleReact(message.id, emoji)}
+                              aria-pressed={active}
+                              disabled={!canEdit}
+                            >
+                              <span>{emoji}</span>
+                              {count > 0 ? <span>{count}</span> : null}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {canModerate ? (
+                        <button
+                          type="button"
+                          className="pin-toggle"
+                          onClick={() => handlePin(message.id)}
+                        >
+                          {message.id === pinnedId ? 'Unpin' : 'Pin'}
+                        </button>
+                      ) : null}
+                    </div>
                     <span>{formatTime(message.createdAt)}</span>
                   </div>
                 </div>

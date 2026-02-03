@@ -585,6 +585,42 @@ canvas {
   padding-right: 6px;
 }
 
+.pinned {
+  border: 1px solid rgba(77, 150, 255, 0.35);
+  background: rgba(77, 150, 255, 0.08);
+  padding: 12px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pinned-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pinned-label {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(77, 150, 255, 0.2);
+  color: #cbd8ff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+}
+
+.pinned-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
 .message {
   display: flex;
   justify-content: flex-start;
@@ -594,6 +630,9 @@ canvas {
   background: var(--panel-2);
   padding: 10px 12px;
   border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .message .bubble p {
@@ -607,7 +646,61 @@ canvas {
   font-size: 12px;
   font-family: 'Space Mono', monospace;
   color: var(--muted);
-  margin-bottom: 6px;
+}
+
+.pin-badge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(77, 150, 255, 0.18);
+  color: #cbd8ff;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reactions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  cursor: pointer;
+}
+
+.reaction.active {
+  border-color: rgba(77, 150, 255, 0.6);
+  background: rgba(77, 150, 255, 0.18);
+  color: #cbd8ff;
+}
+
+.pin-toggle {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(107, 203, 119, 0.18);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .message .bubble .badge {
