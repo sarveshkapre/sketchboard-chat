@@ -41,6 +41,7 @@ type PresenceUser = {
   color: string
   cursor: Point
   active: boolean
+  role?: 'owner' | 'mod' | 'member'
 }
 
 type PresenceCursorUpdate = {
@@ -147,6 +148,12 @@ function App() {
   const [roomsFilter, setRoomsFilter] = useState('')
   const [roomsAutoRefresh, setRoomsAutoRefresh] = useState(true)
 
+  const selfRole = useMemo(
+    () => users.find((user) => user.id === selfId)?.role ?? 'member',
+    [users, selfId],
+  )
+  const canModerate = !viewOnly && (selfRole === 'owner' || selfRole === 'mod')
+  const canManageRoles = !viewOnly && selfRole === 'owner'
   const canEdit = !viewOnly && !roomLocked
 
   const socket = useMemo(() => {
@@ -485,6 +492,26 @@ function App() {
     socketRef.current?.emit('stroke:redo')
   }
 
+  const handleRoomLockToggle = () => {
+    if (!canModerate) return
+    socketRef.current?.emit(roomLocked ? 'room:unlock' : 'room:lock')
+  }
+
+  const handleKickUser = (userId: string, userName: string) => {
+    if (!canModerate) return
+    if (userId === selfId) return
+    const ok = window.confirm(`Remove ${userName || 'this user'} from the room?`)
+    if (!ok) return
+    socketRef.current?.emit('room:kick', { userId })
+  }
+
+  const handleRoleToggleUser = (userId: string, role?: string) => {
+    if (!canManageRoles) return
+    if (userId === selfId) return
+    const nextRole = role === 'mod' ? 'member' : 'mod'
+    socketRef.current?.emit('role:set', { userId, role: nextRole })
+  }
+
   const handleExport = () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -662,6 +689,11 @@ function App() {
               <button onClick={handleClear} disabled={!canEdit}>
                 Clear
               </button>
+              {canModerate ? (
+                <button onClick={handleRoomLockToggle}>
+                  {roomLocked ? 'Unlock room' : 'Lock room'}
+                </button>
+              ) : null}
               <button onClick={handleExport}>Export PNG</button>
               <button onClick={handleExportSvg}>Export SVG</button>
             </div>
@@ -856,6 +888,9 @@ function App() {
                                 aria-hidden="true"
                               />
                               <span className="room-user-name">{user.name}</span>
+                              {user.role ? (
+                                <span className="room-user-role">{user.role}</span>
+                              ) : null}
                               <button
                                 type="button"
                                 className="kick"
@@ -885,8 +920,29 @@ function App() {
                   <span className="avatar" style={{ background: user.color }} />
                   <div>
                     <p>{user.name}</p>
-                    <p className="muted">{user.id === selfId ? 'You' : 'Guest'}</p>
+                    <p className="muted">
+                      {user.id === selfId ? 'You' : 'Guest'}
+                      {user.role && user.role !== 'member' ? ` · ${user.role}` : ''}
+                    </p>
                   </div>
+                  {canManageRoles && user.id !== selfId && user.role !== 'owner' ? (
+                    <button
+                      type="button"
+                      className="role-toggle"
+                      onClick={() => handleRoleToggleUser(user.id, user.role)}
+                    >
+                      {user.role === 'mod' ? 'Remove mod' : 'Make mod'}
+                    </button>
+                  ) : null}
+                  {canModerate && user.id !== selfId && (selfRole === 'owner' || user.role !== 'owner') ? (
+                    <button
+                      type="button"
+                      className="kick"
+                      onClick={() => handleKickUser(user.id, user.name)}
+                    >
+                      Kick
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>

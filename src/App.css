@@ -427,6 +427,13 @@ canvas {
   color: var(--text);
 }
 
+.room-user-role {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .kick {
   padding: 6px 10px;
   border-radius: 10px;
@@ -483,6 +490,21 @@ canvas {
   padding: 8px;
   border-radius: 12px;
   background: var(--panel-2);
+}
+
+.panel-block li > div {
+  flex: 1;
+}
+
+.panel-block li .role-toggle {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .avatar {

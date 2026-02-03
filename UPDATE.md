@@ -17,6 +17,7 @@
 - Rooms panel UX polish (filter + auto refresh).
 - Room lock/unlock (admin).
 - User profile updates (name + color).
+- Room roles (owner/mod) with in-room moderation.
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified

@@ -4,7 +4,7 @@ export type RoomMetrics = {
   strokesCount: number
   messagesCount: number
   locked?: boolean
-  users?: { id: string; name: string; color: string }[]
+  users?: { id: string; name: string; color: string; role?: string }[]
 }
 
 export async function fetchRoomsMetrics(options?: { token?: string }) {

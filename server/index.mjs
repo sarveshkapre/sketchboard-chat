@@ -17,6 +17,17 @@ import {
 import { createFixedWindowRateLimiter } from './rate-limit.mjs'
 import { createRoomPersistence } from './persistence.mjs'
 import { snapshotRooms } from './rooms-metrics.mjs'
+import {
+  ROLE_MEMBER,
+  ROLE_MOD,
+  ROLE_OWNER,
+  assignOwner,
+  canModerate,
+  clearRole,
+  ensureOwner,
+  getRole,
+  setRole,
+} from './roles.mjs'
 import { clearRedoStack, redoLastStroke, undoLastStroke } from './stroke-history.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -91,6 +102,8 @@ function createRoomState() {
     users: new Map(),
     redoByUser: new Map(),
     locked: false,
+    roles: new Map(),
+    ownerId: null,
     hydrated: false,
     hydratePromise: null,
   }
@@ -192,6 +205,8 @@ app.post('/api/rooms/:roomId/kick/:userId', (req, res) => {
   const socket = io.sockets.sockets.get(userId)
   if (!socket) {
     room.users.delete(userId)
+    clearRole(room, userId)
+    ensureOwner(room)
     broadcastPresence(roomId, room)
     res.json({ ok: true, alreadyDisconnected: true })
     return
@@ -276,9 +291,19 @@ io.on('connection', async (socket) => {
     cursor: { x: 0, y: 0 },
     active: true,
     lastCursorAt: 0,
+    viewOnly: isViewOnly,
+    role: ROLE_MEMBER,
   }
 
   room.users.set(socket.id, user)
+  if (!room.ownerId && !isViewOnly) {
+    assignOwner(room, user)
+  } else {
+    const role = getRole(room, socket.id)
+    room.roles.set(socket.id, role)
+    user.role = role
+  }
+  ensureOwner(room)
 
   socket.emit('init', {
     roomId,
@@ -346,6 +371,74 @@ io.on('connection', async (socket) => {
     socket.to(roomId).emit('stroke:add', entry)
   })
 
+  socket.on('room:lock', () => {
+    const role = getRole(room, socket.id)
+    if (!canModerate(role)) {
+      socket.emit('notice', { kind: 'info', message: 'Only moderators can lock rooms.' })
+      return
+    }
+    room.locked = true
+    io.to(roomId).emit('room:lock', { locked: true })
+  })
+
+  socket.on('room:unlock', () => {
+    const role = getRole(room, socket.id)
+    if (!canModerate(role)) {
+      socket.emit('notice', { kind: 'info', message: 'Only moderators can unlock rooms.' })
+      return
+    }
+    room.locked = false
+    io.to(roomId).emit('room:lock', { locked: false })
+  })
+
+  socket.on('room:kick', (payload) => {
+    const role = getRole(room, socket.id)
+    if (!canModerate(role)) {
+      socket.emit('notice', { kind: 'info', message: 'Only moderators can remove users.' })
+      return
+    }
+    const targetId = payload?.userId
+    if (!targetId || !room.users.has(targetId)) return
+    if (targetId === socket.id) return
+    if (room.ownerId === targetId && role !== ROLE_OWNER) {
+      socket.emit('notice', { kind: 'info', message: 'Only the owner can remove owners.' })
+      return
+    }
+
+    const targetSocket = io.sockets.sockets.get(targetId)
+    if (!targetSocket) {
+      room.users.delete(targetId)
+      clearRole(room, targetId)
+      ensureOwner(room)
+      broadcastPresence(roomId, room)
+      return
+    }
+    targetSocket.emit('notice', { kind: 'info', message: 'You were removed from the room.' })
+    setTimeout(() => targetSocket.disconnect(true), 50)
+  })
+
+  socket.on('role:set', (payload) => {
+    const role = getRole(room, socket.id)
+    if (role !== ROLE_OWNER) {
+      socket.emit('notice', { kind: 'info', message: 'Only the owner can manage roles.' })
+      return
+    }
+    const targetId = payload?.userId
+    const nextRole = payload?.role
+    if (!targetId || targetId === socket.id) return
+    if (room.ownerId === targetId) {
+      socket.emit('notice', { kind: 'info', message: 'Owner role cannot be changed.' })
+      return
+    }
+    if (![ROLE_MOD, ROLE_MEMBER].includes(nextRole)) return
+
+    setRole(room, targetId, nextRole)
+    const targetUser = room.users.get(targetId)
+    if (targetUser) {
+      targetUser.role = nextRole
+    }
+    broadcastPresence(roomId, room)
+  })
   socket.on('stroke:undo', () => {
     if (room.locked) {
       socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
@@ -430,7 +523,7 @@ io.on('connection', async (socket) => {
     if (!limit.allowed) {
       socket.emit('notice', {
         kind: 'rate_limited',
-        scope: 'profile',
+        scope: 'chat',
         retryAfterMs: limit.retryAfterMs,
       })
       return
@@ -463,7 +556,7 @@ io.on('connection', async (socket) => {
     if (!limit.allowed) {
       socket.emit('notice', {
         kind: 'rate_limited',
-        scope: 'chat',
+        scope: 'profile',
         retryAfterMs: limit.retryAfterMs,
       })
       return
@@ -494,6 +587,8 @@ io.on('connection', async (socket) => {
   socket.on('disconnect', () => {
     room.users.delete(socket.id)
     room.redoByUser.delete(socket.id)
+    clearRole(room, socket.id)
+    ensureOwner(room)
     broadcastPresence(roomId, room)
     if (room.users.size === 0) {
       void persistence.flush(roomId, room).catch(() => {})

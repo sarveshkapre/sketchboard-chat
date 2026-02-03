@@ -9,6 +9,7 @@ Realtime sketching board with multiplayer presence and chat. Draw together, see 
 - Room-based sessions via `?room=...`
 - Undo/redo (per-user, synced)
 - User profiles (display name + color)
+- Room roles (owner/mod) with in-room moderation
 - Export to PNG and SVG
 
 ## Quickstart

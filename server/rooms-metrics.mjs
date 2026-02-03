@@ -3,6 +3,7 @@ function toBasicUser(user) {
     id: user?.id ?? '',
     name: user?.name ?? 'Unknown',
     color: user?.color ?? '#4d96ff',
+    role: user?.role ?? 'member',
   }
 }
 

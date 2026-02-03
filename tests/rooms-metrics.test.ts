@@ -18,8 +18,8 @@ describe('rooms metrics', () => {
     const rooms = new Map()
     rooms.set('x', {
       users: new Map([
-        ['u1', { id: 'u1', name: 'B', color: '#111' }],
-        ['u2', { id: 'u2', name: 'A', color: '#222' }],
+        ['u1', { id: 'u1', name: 'B', color: '#111', role: 'mod' }],
+        ['u2', { id: 'u2', name: 'A', color: '#222', role: 'owner' }],
       ]),
       strokes: [],
       messages: [],
@@ -33,8 +33,8 @@ describe('rooms metrics', () => {
         messagesCount: 0,
         locked: false,
         users: [
-          { id: 'u2', name: 'A', color: '#222' },
-          { id: 'u1', name: 'B', color: '#111' },
+          { id: 'u2', name: 'A', color: '#222', role: 'owner' },
+          { id: 'u1', name: 'B', color: '#111', role: 'mod' },
         ],
       },
     ])
