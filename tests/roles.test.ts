@@ -13,41 +13,41 @@ describe('roles', () => {
   it('assigns and ensures owners', () => {
     const room = {
       users: new Map(),
-      roles: new Map(),
-      ownerId: null,
+      rolesByKey: new Map(),
+      ownerKey: null,
     }
 
-    const user = { id: 'u1', viewOnly: false, role: 'member' }
+    const user = { id: 's1', userKey: 'u1', viewOnly: false, role: 'member' }
     room.users.set(user.id, user)
 
     assignOwner(room, user)
-    expect(room.ownerId).toBe('u1')
+    expect(room.ownerKey).toBe('u1')
     expect(getRole(room, 'u1')).toBe('owner')
 
-    room.ownerId = null
+    room.ownerKey = null
     ensureOwner(room)
-    expect(room.ownerId).toBe('u1')
+    expect(room.ownerKey).toBe('u1')
   })
 
   it('demotes previous owner if needed', () => {
     const room = {
       users: new Map(),
-      roles: new Map(),
-      ownerId: 'u1',
+      rolesByKey: new Map(),
+      ownerKey: 'u1',
     }
-    const u1 = { id: 'u1', viewOnly: true, role: 'owner' }
-    const u2 = { id: 'u2', viewOnly: false, role: 'member' }
-    room.users.set('u1', u1)
-    room.users.set('u2', u2)
-    room.roles.set('u1', 'owner')
+    const u1 = { id: 's1', userKey: 'u1', viewOnly: true, role: 'owner' }
+    const u2 = { id: 's2', userKey: 'u2', viewOnly: false, role: 'member' }
+    room.users.set('s1', u1)
+    room.users.set('s2', u2)
+    room.rolesByKey.set('u1', 'owner')
 
     ensureOwner(room)
-    expect(room.ownerId).toBe('u2')
-    expect(room.roles.get('u1')).toBe('member')
+    expect(room.ownerKey).toBe('u2')
+    expect(room.rolesByKey.get('u1')).toBeUndefined()
   })
 
   it('supports moderation helpers', () => {
-    const room = { users: new Map(), roles: new Map(), ownerId: null }
+    const room = { users: new Map(), rolesByKey: new Map(), ownerKey: null }
     expect(canModerate('owner')).toBe(true)
     expect(canModerate('mod')).toBe(true)
     expect(canModerate('member')).toBe(false)
@@ -58,4 +58,3 @@ describe('roles', () => {
     expect(getRole(room, 'u1')).toBe('member')
   })
 })
-

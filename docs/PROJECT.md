@@ -12,6 +12,7 @@
 ## Rooms
 Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
 View-only mode: append `?mode=view` (disables drawing + chat).
+The first non-view-only user becomes room owner and can promote moderators.
 
 ## Environment
 - `PORT` (server): default `4000`
@@ -26,5 +27,5 @@ View-only mode: append `?mode=view` (disables drawing + chat).
 
 ## Next 3 improvements
 1. Add per-user stroke grouping (better undo UX).
-2. Add per-room user permissions (owners / moderators).
-3. Add basic auth (optional, lightweight).
+2. Add basic auth (optional, lightweight).
+3. Add room invite links (limited duration).

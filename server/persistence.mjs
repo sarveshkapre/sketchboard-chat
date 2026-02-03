@@ -124,18 +124,25 @@ export function createRoomPersistence(options) {
 
     const strokes = asArray(parsed.strokes).slice(-limits.maxStrokes)
     const messages = asArray(parsed.messages).slice(-limits.maxMessages)
+    const rolesByKey = Array.isArray(parsed.rolesByKey) ? parsed.rolesByKey : []
+    const ownerKey = typeof parsed.ownerKey === 'string' ? parsed.ownerKey : null
 
-    return { strokes, messages }
+    return { strokes, messages, rolesByKey, ownerKey }
   }
 
   async function saveNow(roomId, room) {
     if (!enabled) return
     const filePath = roomFile(roomId)
+    const rolesByKey = Array.from(room?.rolesByKey?.entries?.() ?? []).filter(
+      ([key, role]) => typeof key === 'string' && typeof role === 'string',
+    )
     const snapshot = {
       version: 1,
       savedAt: new Date().toISOString(),
       strokes: asArray(room?.strokes).slice(-limits.maxStrokes),
       messages: asArray(room?.messages).slice(-limits.maxMessages),
+      rolesByKey,
+      ownerKey: typeof room?.ownerKey === 'string' ? room.ownerKey : null,
     }
     await atomicWriteJson(filePath, snapshot)
     scheduleCleanup()

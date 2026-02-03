@@ -12,6 +12,7 @@ import { addRecentRoom, readRecentRooms } from './recentRooms'
 import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
 import { fetchRoomsMetrics, kickUser, setRoomLock, type RoomMetrics } from './adminRooms'
+import { getUserKey } from './userKey'
 
 type Point = { x: number; y: number }
 
@@ -112,6 +113,7 @@ function drawAll(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
 function App() {
   const initialRoomId = useMemo(() => getRoomIdFromUrl(window.location.href), [])
   const initialViewOnly = useMemo(() => isViewOnlyFromUrl(window.location.href), [])
+  const userKey = useMemo(() => getUserKey(), [])
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
@@ -159,9 +161,9 @@ function App() {
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
       autoConnect: true,
-      auth: { room: initialRoomId, mode: initialViewOnly ? 'view' : 'edit' },
+      auth: { room: initialRoomId, mode: initialViewOnly ? 'view' : 'edit', userKey },
     })
-  }, [initialRoomId, initialViewOnly])
+  }, [initialRoomId, initialViewOnly, userKey])
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current

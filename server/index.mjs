@@ -23,7 +23,6 @@ import {
   ROLE_OWNER,
   assignOwner,
   canModerate,
-  clearRole,
   ensureOwner,
   getRole,
   setRole,
@@ -92,6 +91,8 @@ function randomName() {
 function toPublicUser(user) {
   const publicUser = { ...user }
   delete publicUser.lastCursorAt
+  delete publicUser.userKey
+  delete publicUser.viewOnly
   return publicUser
 }
 
@@ -102,8 +103,8 @@ function createRoomState() {
     users: new Map(),
     redoByUser: new Map(),
     locked: false,
-    roles: new Map(),
-    ownerId: null,
+    rolesByKey: new Map(),
+    ownerKey: null,
     hydrated: false,
     hydratePromise: null,
   }
@@ -120,6 +121,16 @@ function getRoom(roomId) {
         if (loaded) {
           created.strokes = loaded.strokes
           created.messages = loaded.messages
+          if (Array.isArray(loaded.rolesByKey)) {
+            created.rolesByKey = new Map(
+              loaded.rolesByKey.filter(
+                ([key, role]) => typeof key === 'string' && typeof role === 'string',
+              ),
+            )
+          }
+          if (typeof loaded.ownerKey === 'string') {
+            created.ownerKey = loaded.ownerKey
+          }
         }
       })
       .catch(() => {})
@@ -174,6 +185,7 @@ function setRoomLock(roomId, locked) {
   if (!room) return null
   room.locked = locked
   io.to(roomId).emit('room:lock', { locked })
+  persistence.scheduleSave(roomId, room)
   return room
 }
 
@@ -205,7 +217,6 @@ app.post('/api/rooms/:roomId/kick/:userId', (req, res) => {
   const socket = io.sockets.sockets.get(userId)
   if (!socket) {
     room.users.delete(userId)
-    clearRole(room, userId)
     ensureOwner(room)
     broadcastPresence(roomId, room)
     res.json({ ok: true, alreadyDisconnected: true })
@@ -274,6 +285,9 @@ io.on('connection', async (socket) => {
   const rawRoom =
     socket.handshake.auth?.room ??
     (typeof socket.handshake.query?.room === 'string' ? socket.handshake.query.room : '')
+  const rawUserKey =
+    socket.handshake.auth?.userKey ??
+    (typeof socket.handshake.query?.userKey === 'string' ? socket.handshake.query.userKey : '')
   const roomId = sanitizeRoomId(rawRoom)
   const room = getRoom(roomId)
   if (room.hydratePromise) {
@@ -281,11 +295,18 @@ io.on('connection', async (socket) => {
   }
   socket.join(roomId)
 
+  const sanitizedUserKey =
+    typeof rawUserKey === 'string'
+      ? rawUserKey.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
+      : ''
+  const userKey = sanitizedUserKey || socket.id
+
   const isViewOnly =
     socket.handshake.auth?.mode === 'view' || socket.handshake.query?.mode === 'view'
 
   const user = {
     id: socket.id,
+    userKey,
     name: randomName(),
     color: colors[Math.floor(Math.random() * colors.length)],
     cursor: { x: 0, y: 0 },
@@ -296,14 +317,17 @@ io.on('connection', async (socket) => {
   }
 
   room.users.set(socket.id, user)
-  if (!room.ownerId && !isViewOnly) {
+  const existingRole = isViewOnly ? ROLE_MEMBER : getRole(room, userKey)
+  if (!isViewOnly && existingRole === ROLE_OWNER) {
+    room.ownerKey = userKey
+  }
+  if (!room.ownerKey && !isViewOnly) {
     assignOwner(room, user)
   } else {
-    const role = getRole(room, socket.id)
-    room.roles.set(socket.id, role)
-    user.role = role
+    user.role = existingRole
   }
   ensureOwner(room)
+  persistence.scheduleSave(roomId, room)
 
   socket.emit('init', {
     roomId,
@@ -372,27 +396,32 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('room:lock', () => {
-    const role = getRole(room, socket.id)
+    if (isViewOnly) return
+    const role = getRole(room, userKey)
     if (!canModerate(role)) {
       socket.emit('notice', { kind: 'info', message: 'Only moderators can lock rooms.' })
       return
     }
     room.locked = true
     io.to(roomId).emit('room:lock', { locked: true })
+    persistence.scheduleSave(roomId, room)
   })
 
   socket.on('room:unlock', () => {
-    const role = getRole(room, socket.id)
+    if (isViewOnly) return
+    const role = getRole(room, userKey)
     if (!canModerate(role)) {
       socket.emit('notice', { kind: 'info', message: 'Only moderators can unlock rooms.' })
       return
     }
     room.locked = false
     io.to(roomId).emit('room:lock', { locked: false })
+    persistence.scheduleSave(roomId, room)
   })
 
   socket.on('room:kick', (payload) => {
-    const role = getRole(room, socket.id)
+    if (isViewOnly) return
+    const role = getRole(room, userKey)
     if (!canModerate(role)) {
       socket.emit('notice', { kind: 'info', message: 'Only moderators can remove users.' })
       return
@@ -400,7 +429,13 @@ io.on('connection', async (socket) => {
     const targetId = payload?.userId
     if (!targetId || !room.users.has(targetId)) return
     if (targetId === socket.id) return
-    if (room.ownerId === targetId && role !== ROLE_OWNER) {
+    const targetUser = room.users.get(targetId)
+    if (!targetUser) return
+    if (role === ROLE_MOD && targetUser.role !== ROLE_MEMBER) {
+      socket.emit('notice', { kind: 'info', message: 'Mods can only remove members.' })
+      return
+    }
+    if (room.ownerKey === targetUser.userKey && role !== ROLE_OWNER) {
       socket.emit('notice', { kind: 'info', message: 'Only the owner can remove owners.' })
       return
     }
@@ -408,17 +443,27 @@ io.on('connection', async (socket) => {
     const targetSocket = io.sockets.sockets.get(targetId)
     if (!targetSocket) {
       room.users.delete(targetId)
-      clearRole(room, targetId)
       ensureOwner(room)
       broadcastPresence(roomId, room)
+      persistence.scheduleSave(roomId, room)
       return
     }
     targetSocket.emit('notice', { kind: 'info', message: 'You were removed from the room.' })
-    setTimeout(() => targetSocket.disconnect(true), 50)
+    const targetKey = targetUser.userKey
+    for (const [socketId, member] of room.users.entries()) {
+      if (member.userKey !== targetKey) continue
+      const memberSocket = io.sockets.sockets.get(socketId)
+      if (memberSocket) {
+        setTimeout(() => memberSocket.disconnect(true), 50)
+      } else {
+        room.users.delete(socketId)
+      }
+    }
   })
 
   socket.on('role:set', (payload) => {
-    const role = getRole(room, socket.id)
+    if (isViewOnly) return
+    const role = getRole(room, userKey)
     if (role !== ROLE_OWNER) {
       socket.emit('notice', { kind: 'info', message: 'Only the owner can manage roles.' })
       return
@@ -426,18 +471,17 @@ io.on('connection', async (socket) => {
     const targetId = payload?.userId
     const nextRole = payload?.role
     if (!targetId || targetId === socket.id) return
-    if (room.ownerId === targetId) {
+    const targetUser = room.users.get(targetId)
+    if (!targetUser) return
+    if (room.ownerKey === targetUser.userKey) {
       socket.emit('notice', { kind: 'info', message: 'Owner role cannot be changed.' })
       return
     }
     if (![ROLE_MOD, ROLE_MEMBER].includes(nextRole)) return
 
-    setRole(room, targetId, nextRole)
-    const targetUser = room.users.get(targetId)
-    if (targetUser) {
-      targetUser.role = nextRole
-    }
+    setRole(room, targetUser.userKey, nextRole)
     broadcastPresence(roomId, room)
+    persistence.scheduleSave(roomId, room)
   })
   socket.on('stroke:undo', () => {
     if (room.locked) {
@@ -587,13 +631,14 @@ io.on('connection', async (socket) => {
   socket.on('disconnect', () => {
     room.users.delete(socket.id)
     room.redoByUser.delete(socket.id)
-    clearRole(room, socket.id)
     ensureOwner(room)
     broadcastPresence(roomId, room)
     if (room.users.size === 0) {
       void persistence.flush(roomId, room).catch(() => {})
       rooms.delete(roomId)
+      return
     }
+    persistence.scheduleSave(roomId, room)
   })
 })
 

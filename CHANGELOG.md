@@ -18,6 +18,7 @@
 - Room lock/unlock (admin).
 - User profile updates (name + color).
 - Room roles (owner/mod) with in-room moderation.
+- Stable user identity for role persistence (local key).
 - Presence/chat UX improvements (cursor deltas, throttled cursor emits, author metadata, chat autoscroll).
 
 ## [0.1.0] - 2026-02-01
