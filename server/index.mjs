@@ -87,6 +87,7 @@ function createRoomState() {
     messages: [],
     users: new Map(),
     redoByUser: new Map(),
+    locked: false,
     hydrated: false,
     hydratePromise: null,
   }
@@ -152,6 +153,14 @@ app.get('/api/rooms', (req, res) => {
   res.json({ rooms: snapshotRooms(rooms, { includeUsers: auth.authorized }) })
 })
 
+function setRoomLock(roomId, locked) {
+  const room = rooms.get(roomId)
+  if (!room) return null
+  room.locked = locked
+  io.to(roomId).emit('room:lock', { locked })
+  return room
+}
+
 app.post('/api/rooms/:roomId/kick/:userId', (req, res) => {
   const auth = isAuthorizedAdmin(req)
   if (!auth.enabled) {
@@ -195,6 +204,46 @@ app.post('/api/rooms/:roomId/kick/:userId', (req, res) => {
   res.json({ ok: true })
 })
 
+app.post('/api/rooms/:roomId/lock', (req, res) => {
+  const auth = isAuthorizedAdmin(req)
+  if (!auth.enabled) {
+    res.status(404).json({ error: 'disabled' })
+    return
+  }
+  if (!auth.authorized) {
+    res.status(401).json({ error: 'unauthorized' })
+    return
+  }
+
+  const roomId = sanitizeRoomId(req.params.roomId)
+  const room = setRoomLock(roomId, true)
+  if (!room) {
+    res.status(404).json({ error: 'room_not_found' })
+    return
+  }
+  res.json({ ok: true, locked: true })
+})
+
+app.post('/api/rooms/:roomId/unlock', (req, res) => {
+  const auth = isAuthorizedAdmin(req)
+  if (!auth.enabled) {
+    res.status(404).json({ error: 'disabled' })
+    return
+  }
+  if (!auth.authorized) {
+    res.status(401).json({ error: 'unauthorized' })
+    return
+  }
+
+  const roomId = sanitizeRoomId(req.params.roomId)
+  const room = setRoomLock(roomId, false)
+  if (!room) {
+    res.status(404).json({ error: 'room_not_found' })
+    return
+  }
+  res.json({ ok: true, locked: false })
+})
+
 const distPath = path.resolve(__dirname, '../dist')
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath))
@@ -235,6 +284,7 @@ io.on('connection', async (socket) => {
     users: snapshotUsers(room),
     selfId: socket.id,
     viewOnly: isViewOnly,
+    locked: room.locked,
   })
 
   broadcastPresence(roomId, room)
@@ -257,6 +307,10 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('stroke:add', (stroke) => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
     if (isViewOnly) return
     const limit = strokeLimiter.check()
     if (!limit.allowed) {
@@ -286,6 +340,10 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('stroke:undo', () => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
     if (isViewOnly) return
     const limit = historyLimiter.check()
     if (!limit.allowed) {
@@ -307,6 +365,10 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('stroke:redo', () => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
     if (isViewOnly) return
     const limit = historyLimiter.check()
     if (!limit.allowed) {
@@ -331,6 +393,10 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('board:clear', () => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
     if (isViewOnly) return
     const limit = clearLimiter.check()
     if (!limit.allowed) {
@@ -348,6 +414,10 @@ io.on('connection', async (socket) => {
   })
 
   socket.on('chat:message', (message) => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
     if (isViewOnly) return
     const limit = chatLimiter.check()
     if (!limit.allowed) {

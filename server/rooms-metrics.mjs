@@ -13,7 +13,13 @@ export function snapshotRooms(rooms, options) {
     const usersCount = room?.users?.size ?? 0
     const strokesCount = Array.isArray(room?.strokes) ? room.strokes.length : 0
     const messagesCount = Array.isArray(room?.messages) ? room.messages.length : 0
-    const entry = { roomId, usersCount, strokesCount, messagesCount }
+    const entry = {
+      roomId,
+      usersCount,
+      strokesCount,
+      messagesCount,
+      locked: Boolean(room?.locked),
+    }
     if (includeUsers) {
       const users = Array.from(room?.users?.values?.() ?? [], toBasicUser).filter(
         (user) => user.id,

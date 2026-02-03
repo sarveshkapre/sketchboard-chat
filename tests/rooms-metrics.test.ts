@@ -5,12 +5,12 @@ import { snapshotRooms } from '../server/rooms-metrics.mjs'
 describe('rooms metrics', () => {
   it('snapshots rooms with counts', () => {
     const rooms = new Map()
-    rooms.set('b', { users: new Map([['u1', {}]]), strokes: [{}, {}], messages: [] })
-    rooms.set('a', { users: new Map(), strokes: [], messages: [{}, {}, {}] })
+    rooms.set('b', { users: new Map([['u1', {}]]), strokes: [{}, {}], messages: [], locked: true })
+    rooms.set('a', { users: new Map(), strokes: [], messages: [{}, {}, {}], locked: false })
 
     expect(snapshotRooms(rooms)).toEqual([
-      { roomId: 'b', usersCount: 1, strokesCount: 2, messagesCount: 0 },
-      { roomId: 'a', usersCount: 0, strokesCount: 0, messagesCount: 3 },
+      { roomId: 'b', usersCount: 1, strokesCount: 2, messagesCount: 0, locked: true },
+      { roomId: 'a', usersCount: 0, strokesCount: 0, messagesCount: 3, locked: false },
     ])
   })
 
@@ -31,6 +31,7 @@ describe('rooms metrics', () => {
         usersCount: 2,
         strokesCount: 0,
         messagesCount: 0,
+        locked: false,
         users: [
           { id: 'u2', name: 'A', color: '#222' },
           { id: 'u1', name: 'B', color: '#111' },

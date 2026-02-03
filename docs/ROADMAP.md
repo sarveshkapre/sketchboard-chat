@@ -16,6 +16,7 @@
 - Admin room metrics endpoint (`GET /api/rooms`).
 - Rooms panel UI (uses `/api/rooms`).
 - Kick users from a room (admin token required).
+- Room lock/unlock (admin).
 
 ## Later
 - Image import + stickers.

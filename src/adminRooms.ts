@@ -3,6 +3,7 @@ export type RoomMetrics = {
   usersCount: number
   strokesCount: number
   messagesCount: number
+  locked?: boolean
   users?: { id: string; name: string; color: string }[]
 }
 
@@ -34,4 +35,16 @@ export async function kickUser(options: { roomId: string; userId: string; token:
     throw new Error(`Kick failed: ${response.status}`)
   }
   return (await response.json()) as { ok?: boolean }
+}
+
+export async function setRoomLock(options: { roomId: string; locked: boolean; token: string }) {
+  const endpoint = options.locked ? 'lock' : 'unlock'
+  const response = await fetch(`/api/rooms/${encodeURIComponent(options.roomId)}/${endpoint}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${options.token}` },
+  })
+  if (!response.ok) {
+    throw new Error(`Lock failed: ${response.status}`)
+  }
+  return (await response.json()) as { ok?: boolean; locked?: boolean }
 }

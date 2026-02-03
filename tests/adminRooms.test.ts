@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { fetchRoomsMetrics, kickUser } from '../src/adminRooms'
+import { fetchRoomsMetrics, kickUser, setRoomLock } from '../src/adminRooms'
 
 describe('admin rooms api', () => {
   it('fetches rooms metrics', async () => {
@@ -28,5 +28,17 @@ describe('admin rooms api', () => {
 
     const result = await kickUser({ roomId: 'x', userId: 'u1', token: 't' })
     expect(result.ok).toBe(true)
+  })
+
+  it('locks a room', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, locked: true }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await setRoomLock({ roomId: 'x', locked: true, token: 't' })
+    expect(result.locked).toBe(true)
   })
 })

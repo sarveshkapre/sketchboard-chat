@@ -11,7 +11,7 @@ import {
 import { addRecentRoom, readRecentRooms } from './recentRooms'
 import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
-import { fetchRoomsMetrics, kickUser, type RoomMetrics } from './adminRooms'
+import { fetchRoomsMetrics, kickUser, setRoomLock, type RoomMetrics } from './adminRooms'
 
 type Point = { x: number; y: number }
 
@@ -125,6 +125,7 @@ function App() {
   const [selfId, setSelfId] = useState('')
   const [roomId, setRoomId] = useState(initialRoomId)
   const [viewOnly, setViewOnly] = useState(initialViewOnly)
+  const [roomLocked, setRoomLocked] = useState(false)
   const [users, setUsers] = useState<PresenceUser[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [color, setColor] = useState(COLORS[0])
@@ -142,6 +143,8 @@ function App() {
   const [roomsMetrics, setRoomsMetrics] = useState<RoomMetrics[]>([])
   const [roomsFilter, setRoomsFilter] = useState('')
   const [roomsAutoRefresh, setRoomsAutoRefresh] = useState(true)
+
+  const canEdit = !viewOnly && !roomLocked
 
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
@@ -197,6 +200,9 @@ function App() {
       } else {
         setViewOnly(isViewOnlyFromUrl(window.location.href))
       }
+      if (typeof payload.locked === 'boolean') {
+        setRoomLocked(payload.locked)
+      }
       setUsers(payload.users)
       setMessages(payload.messages.slice(-LIMITS.maxMessages))
       strokesRef.current = payload.strokes.slice(-LIMITS.maxStrokes)
@@ -238,6 +244,17 @@ function App() {
       strokesRef.current = []
       const ctx = canvasRef.current?.getContext('2d')
       if (ctx) drawAll(ctx, [])
+    })
+
+    socket.on('room:lock', (payload: { locked: boolean }) => {
+      if (typeof payload?.locked === 'boolean') {
+        setRoomLocked(payload.locked)
+        if (payload.locked) {
+          setToast('Room locked.')
+        } else {
+          setToast('Room unlocked.')
+        }
+      }
     })
 
     socket.on('chat:message', (message: ChatMessage) => {
@@ -326,6 +343,28 @@ function App() {
     [adminToken, refreshRooms],
   )
 
+  const handleLockToggle = useCallback(
+    async (roomId: string, locked: boolean) => {
+      const token = adminToken.trim()
+      if (!token) {
+        setAdminError('Admin token required to lock rooms.')
+        return
+      }
+
+      setAdminLoading(true)
+      setAdminError(null)
+      try {
+        await setRoomLock({ roomId, locked, token })
+        await refreshRooms()
+      } catch (error) {
+        setAdminError(error instanceof Error ? error.message : 'Lock update failed')
+      } finally {
+        setAdminLoading(false)
+      }
+    },
+    [adminToken, refreshRooms],
+  )
+
   useEffect(() => {
     if (!adminOpen) return
     void refreshRooms()
@@ -344,7 +383,7 @@ function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return
       if (!socketRef.current?.connected) return
-      if (viewOnly) return
+      if (!canEdit) return
 
       const isUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z'
       const isRedo =
@@ -365,10 +404,10 @@ function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [viewOnly])
+  }, [canEdit])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (viewOnly) return
+    if (!canEdit) return
     const canvas = canvasRef.current
     if (!canvas) return
     canvas.setPointerCapture(event.pointerId)
@@ -385,7 +424,7 @@ function App() {
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (viewOnly) return
+    if (!canEdit) return
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
@@ -400,7 +439,7 @@ function App() {
   }
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (viewOnly) return
+    if (!canEdit) return
     if (!drawingRef.current) return
     event.currentTarget.releasePointerCapture(event.pointerId)
     const stroke = drawingRef.current
@@ -410,18 +449,18 @@ function App() {
   }
 
   const handleClear = () => {
-    if (viewOnly) return
+    if (!canEdit) return
     socketRef.current?.emit('board:clear')
   }
 
   const handleUndo = () => {
-    if (viewOnly) return
+    if (!canEdit) return
     if (drawingRef.current) return
     socketRef.current?.emit('stroke:undo')
   }
 
   const handleRedo = () => {
-    if (viewOnly) return
+    if (!canEdit) return
     if (drawingRef.current) return
     socketRef.current?.emit('stroke:redo')
   }
@@ -495,7 +534,7 @@ function App() {
 
   const handleSend = (event: React.FormEvent) => {
     event.preventDefault()
-    if (viewOnly) return
+    if (!canEdit) return
     if (!chatInput.trim()) return
     socketRef.current?.emit('chat:message', {
       id: createId('msg'),
@@ -530,18 +569,23 @@ function App() {
                 View only
               </div>
             ) : null}
+            {roomLocked ? (
+              <div className="mode-pill warning" aria-label="Room locked">
+                Locked
+              </div>
+            ) : null}
             <div className="tool-group">
               <button
                 className={tool === 'pen' ? 'active' : ''}
                 onClick={() => setTool('pen')}
-                disabled={viewOnly}
+                disabled={!canEdit}
               >
                 Pen
               </button>
               <button
                 className={tool === 'eraser' ? 'active' : ''}
                 onClick={() => setTool('eraser')}
-                disabled={viewOnly}
+                disabled={!canEdit}
               >
                 Eraser
               </button>
@@ -554,7 +598,7 @@ function App() {
                   style={{ background: swatch }}
                   onClick={() => setColor(swatch)}
                   aria-label={`Color ${swatch}`}
-                  disabled={viewOnly}
+                  disabled={!canEdit}
                 />
               ))}
             </div>
@@ -564,20 +608,20 @@ function App() {
                   key={value}
                   className={size === value ? 'active' : ''}
                   onClick={() => setSize(value)}
-                  disabled={viewOnly}
+                  disabled={!canEdit}
                 >
                   {value}px
                 </button>
               ))}
             </div>
             <div className="tool-group actions">
-              <button onClick={handleUndo} title="Undo (⌘/Ctrl+Z)" disabled={viewOnly}>
+              <button onClick={handleUndo} title="Undo (⌘/Ctrl+Z)" disabled={!canEdit}>
                 Undo
               </button>
-              <button onClick={handleRedo} title="Redo (⇧⌘Z / Ctrl+Y)" disabled={viewOnly}>
+              <button onClick={handleRedo} title="Redo (⇧⌘Z / Ctrl+Y)" disabled={!canEdit}>
                 Redo
               </button>
-              <button onClick={handleClear} disabled={viewOnly}>
+              <button onClick={handleClear} disabled={!canEdit}>
                 Clear
               </button>
               <button onClick={handleExport}>Export PNG</button>
@@ -716,7 +760,22 @@ function App() {
                           {room.usersCount} users · {room.strokesCount} strokes ·{' '}
                           {room.messagesCount} msgs
                         </span>
+                        <span className="room-meta">
+                          {room.locked ? 'Locked' : 'Unlocked'}
+                        </span>
                       </button>
+                      {adminToken.trim() ? (
+                        <div className="room-admin-actions">
+                          <button
+                            type="button"
+                            className="lock-toggle"
+                            onClick={() => handleLockToggle(room.roomId, !room.locked)}
+                            disabled={adminLoading}
+                          >
+                            {room.locked ? 'Unlock' : 'Lock'}
+                          </button>
+                        </div>
+                      ) : null}
                       {room.users && room.users.length > 0 ? (
                         <ul className="room-users" aria-label={`Users in ${room.roomId}`}>
                           {room.users.map((user) => (
@@ -787,9 +846,9 @@ function App() {
                 value={chatInput}
                 onChange={(event) => setChatInput(event.target.value)}
                 placeholder="Say something..."
-                disabled={viewOnly}
+                disabled={!canEdit}
               />
-              <button type="submit" disabled={viewOnly}>
+              <button type="submit" disabled={!canEdit}>
                 Send
               </button>
             </form>

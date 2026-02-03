@@ -48,6 +48,12 @@ Example:
 curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:4000/api/rooms
 ```
 
+Lock/unlock a room:
+```bash
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:4000/api/rooms/team-1/lock
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:4000/api/rooms/team-1/unlock
+```
+
 ## Docker
 ```bash
 docker build -t sketchboard-chat .

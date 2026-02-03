@@ -126,6 +126,11 @@ body {
   font-size: 12px;
 }
 
+.mode-pill.warning {
+  border-color: rgba(255, 107, 107, 0.5);
+  color: #ffb3b3;
+}
+
 .tool-group {
   display: flex;
   gap: 8px;
@@ -367,6 +372,23 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.room-admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.lock-toggle {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(77, 150, 255, 0.12);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .room-user {
