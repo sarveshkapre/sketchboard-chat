@@ -18,6 +18,7 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - Kick users from a room (admin token required)
 - Rooms panel UX polish (filter + auto refresh)
 - Room lock/unlock (admin)
+- User profile updates (name + color)
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -43,6 +44,7 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Kick users from a room (admin token required).
 - Rooms panel UX polish (filter + auto refresh).
 - Room lock/unlock (admin).
+- User profile updates (name + color).
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next

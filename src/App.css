@@ -306,6 +306,26 @@ canvas {
   color: var(--muted);
 }
 
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0f0f1c;
+  color: var(--text);
+}
+
+.profile-colors {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .admin-header {
   display: flex;
   align-items: center;

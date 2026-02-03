@@ -16,6 +16,7 @@
 - Kick users from a room (admin token required).
 - Rooms panel UX polish (filter + auto refresh).
 - Room lock/unlock (admin).
+- User profile updates (name + color).
 - Presence/chat polish (cursor deltas + throttling, chat author metadata, chat autoscroll).
 
 ## Verified

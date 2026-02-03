@@ -4,6 +4,7 @@ import {
   parseCorsOrigin,
   sanitizeChatMessage,
   sanitizeCursor,
+  sanitizeUserProfile,
   sanitizeRoomId,
   sanitizeStroke,
 } from '../server/validation.mjs'
@@ -36,6 +37,14 @@ describe('server validation', () => {
     const value = sanitizeChatMessage({ text: '  hello world  ' }, limits)
     expect(value?.text).toBe('hello')
     expect(value?.id.startsWith('msg-')).toBe(true)
+  })
+
+  it('sanitizes user profile updates', () => {
+    expect(sanitizeUserProfile(null)).toBe(null)
+    expect(sanitizeUserProfile({})).toBe(null)
+    expect(sanitizeUserProfile({ name: '  Alice  ' })).toEqual({ name: 'Alice', color: null })
+    expect(sanitizeUserProfile({ color: '#FFAA00' })).toEqual({ name: '', color: '#ffaa00' })
+    expect(sanitizeUserProfile({ name: '  ', color: 'bad' })).toBe(null)
   })
 
   it('sanitizes strokes', () => {

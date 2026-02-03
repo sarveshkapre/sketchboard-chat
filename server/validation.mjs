@@ -92,3 +92,17 @@ export function sanitizeChatMessage(input, limits) {
   const id = safeTrimString(input.id, 80) || createId('msg')
   return { id, text }
 }
+
+export function sanitizeUserProfile(input) {
+  if (!input || typeof input !== 'object') return null
+
+  const name = safeTrimString(input.name, 24)
+  const color =
+    typeof input.color === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(input.color)
+      ? input.color.toLowerCase()
+      : null
+
+  if (!name && !color) return null
+
+  return { name, color }
+}

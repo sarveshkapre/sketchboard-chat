@@ -12,6 +12,7 @@ import {
   sanitizeCursor,
   sanitizeRoomId,
   sanitizeStroke,
+  sanitizeUserProfile,
 } from './validation.mjs'
 import { createFixedWindowRateLimiter } from './rate-limit.mjs'
 import { createRoomPersistence } from './persistence.mjs'
@@ -63,6 +64,8 @@ const RATE_LIMITS = {
   strokeMax: 40,
   clearWindowMs: 5000,
   clearMax: 2,
+  profileWindowMs: 5000,
+  profileMax: 3,
 }
 
 const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b5de5']
@@ -301,6 +304,10 @@ io.on('connection', async (socket) => {
     windowMs: RATE_LIMITS.clearWindowMs,
     max: RATE_LIMITS.clearMax,
   })
+  const profileLimiter = createFixedWindowRateLimiter({
+    windowMs: RATE_LIMITS.profileWindowMs,
+    max: RATE_LIMITS.profileMax,
+  })
   const historyLimiter = createFixedWindowRateLimiter({
     windowMs: 1000,
     max: 12,
@@ -423,7 +430,7 @@ io.on('connection', async (socket) => {
     if (!limit.allowed) {
       socket.emit('notice', {
         kind: 'rate_limited',
-        scope: 'chat',
+        scope: 'profile',
         retryAfterMs: limit.retryAfterMs,
       })
       return
@@ -444,6 +451,30 @@ io.on('connection', async (socket) => {
     }
     persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('chat:message', entry)
+  })
+
+  socket.on('profile:update', (payload) => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
+    if (isViewOnly) return
+    const limit = profileLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'chat',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
+
+    const sanitized = sanitizeUserProfile(payload)
+    if (!sanitized) return
+    if (sanitized.name) user.name = sanitized.name
+    if (sanitized.color) user.color = sanitized.color
+    room.users.set(socket.id, user)
+    broadcastPresence(roomId, room)
   })
 
   socket.on('presence:cursor', (cursor) => {

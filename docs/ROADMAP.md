@@ -17,6 +17,7 @@
 - Rooms panel UI (uses `/api/rooms`).
 - Kick users from a room (admin token required).
 - Room lock/unlock (admin).
+- User profile updates (name + color).
 
 ## Later
 - Image import + stickers.

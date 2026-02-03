@@ -51,7 +51,7 @@ type PresenceCursorUpdate = {
 type Notice =
   | {
       kind: 'rate_limited'
-      scope: 'chat' | 'stroke' | 'clear'
+      scope: 'chat' | 'stroke' | 'clear' | 'profile'
       retryAfterMs: number
     }
   | {
@@ -136,6 +136,9 @@ function App() {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
   const [toast, setToast] = useState<string | null>(null)
   const [recentRooms, setRecentRooms] = useState<string[]>(() => readRecentRooms())
+  const [profileName, setProfileName] = useState('')
+  const [profileColor, setProfileColor] = useState(COLORS[0])
+  const profileDirtyRef = useRef(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [adminToken, setAdminToken] = useState('')
   const [adminLoading, setAdminLoading] = useState(false)
@@ -204,6 +207,12 @@ function App() {
         setRoomLocked(payload.locked)
       }
       setUsers(payload.users)
+      const me = payload.users?.find?.((user: PresenceUser) => user.id === payload.selfId)
+      if (me) {
+        setProfileName(me.name)
+        setProfileColor(me.color)
+        profileDirtyRef.current = false
+      }
       setMessages(payload.messages.slice(-LIMITS.maxMessages))
       strokesRef.current = payload.strokes.slice(-LIMITS.maxStrokes)
       const ctx = canvasRef.current?.getContext('2d')
@@ -268,7 +277,9 @@ function App() {
             ? 'Chat'
             : notice.scope === 'stroke'
               ? 'Drawing'
-              : 'Clear'
+              : notice.scope === 'clear'
+                ? 'Clear'
+                : 'Profile'
         setToast(`${label} is rate limited — try again in ${Math.ceil(notice.retryAfterMs / 1000)}s.`)
         return
       }
@@ -301,6 +312,15 @@ function App() {
     const timeout = window.setTimeout(() => setToast(null), 1600)
     return () => window.clearTimeout(timeout)
   }, [toast])
+
+  useEffect(() => {
+    if (!selfId) return
+    if (profileDirtyRef.current) return
+    const me = users.find((user) => user.id === selfId)
+    if (!me) return
+    setProfileName(me.name)
+    setProfileColor(me.color)
+  }, [users, selfId])
 
   useEffect(() => {
     setRecentRooms(addRecentRoom(roomId))
@@ -532,6 +552,24 @@ function App() {
     window.location.assign(url)
   }
 
+  const handleProfileCommit = () => {
+    if (!canEdit) return
+    profileDirtyRef.current = false
+    socketRef.current?.emit('profile:update', {
+      name: profileName,
+      color: profileColor,
+    })
+  }
+
+  const handleProfileColor = (nextColor: string) => {
+    if (!canEdit) return
+    setProfileColor(nextColor)
+    socketRef.current?.emit('profile:update', {
+      name: profileName,
+      color: nextColor,
+    })
+  }
+
   const handleSend = (event: React.FormEvent) => {
     event.preventDefault()
     if (!canEdit) return
@@ -699,6 +737,38 @@ function App() {
                 {viewOnly ? 'Switch to edit' : 'Switch to view'}
               </button>
               <p className="muted">{viewOnly ? 'Read-only mode' : 'Edit mode'}</p>
+            </div>
+          </div>
+          <div className="panel-block profile">
+            <h3>Profile</h3>
+            <div className="profile-field">
+              <label htmlFor="profile-name" className="muted">
+                Display name
+              </label>
+              <input
+                id="profile-name"
+                value={profileName}
+                onChange={(event) => {
+                  profileDirtyRef.current = true
+                  setProfileName(event.target.value)
+                }}
+                onBlur={handleProfileCommit}
+                placeholder="Your name"
+                disabled={!canEdit}
+              />
+            </div>
+            <div className="profile-colors">
+              {COLORS.map((swatch) => (
+                <button
+                  key={swatch}
+                  type="button"
+                  className={profileColor === swatch ? 'swatch active' : 'swatch'}
+                  style={{ background: swatch }}
+                  onClick={() => handleProfileColor(swatch)}
+                  aria-label={`Profile color ${swatch}`}
+                  disabled={!canEdit}
+                />
+              ))}
             </div>
           </div>
           <div className="panel-block admin">
