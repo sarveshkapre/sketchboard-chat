@@ -6,6 +6,11 @@ function getRedoStack(redoByUser, userId) {
   return stack
 }
 
+function normalizeBatchId(stroke) {
+  if (!stroke || typeof stroke !== 'object') return ''
+  return typeof stroke.batchId === 'string' ? stroke.batchId : ''
+}
+
 export function clearRedoStack(redoByUser, userId) {
   redoByUser.delete(userId)
 }
@@ -14,9 +19,25 @@ export function undoLastStroke(strokes, redoByUser, userId) {
   for (let index = strokes.length - 1; index >= 0; index -= 1) {
     const stroke = strokes[index]
     if (stroke?.userId !== userId) continue
-    strokes.splice(index, 1)
-    getRedoStack(redoByUser, userId).push(stroke)
-    return stroke
+    const batchId = normalizeBatchId(stroke)
+    const removed = []
+
+    if (batchId) {
+      for (let batchIndex = strokes.length - 1; batchIndex >= 0; batchIndex -= 1) {
+        const candidate = strokes[batchIndex]
+        if (candidate?.userId !== userId) continue
+        if (normalizeBatchId(candidate) !== batchId) continue
+        strokes.splice(batchIndex, 1)
+        removed.unshift(candidate)
+      }
+    } else {
+      strokes.splice(index, 1)
+      removed.push(stroke)
+    }
+
+    if (removed.length === 0) return null
+    getRedoStack(redoByUser, userId).push(removed)
+    return removed
   }
   return null
 }
@@ -24,9 +45,13 @@ export function undoLastStroke(strokes, redoByUser, userId) {
 export function redoLastStroke(strokes, redoByUser, userId) {
   const stack = redoByUser.get(userId)
   if (!stack || stack.length === 0) return null
-  const stroke = stack.pop()
-  if (!stroke) return null
-  strokes.push(stroke)
-  return stroke
-}
+  const entry = stack.pop()
+  if (!entry) return null
 
+  const batch = Array.isArray(entry) ? entry.filter(Boolean) : [entry]
+  if (batch.length === 0) return null
+  for (const stroke of batch) {
+    strokes.push(stroke)
+  }
+  return batch
+}

@@ -69,18 +69,23 @@ export function sanitizeStroke(input, limits) {
 
   const tool = input.tool === 'eraser' ? 'eraser' : 'pen'
   const id = safeTrimString(input.id, 80) || createId('stroke')
+  const batchId = safeTrimString(input.batchId, 80)
   const color = safeTrimString(input.color, 32) || '#4d96ff'
 
   const size = isFiniteNumber(input.size) ? input.size : 4
   const normalizedSize = Math.max(1, Math.min(50, size))
 
-  return {
+  const stroke = {
     id,
     color,
     size: normalizedSize,
     tool,
     points: normalizedPoints,
   }
+  if (batchId) {
+    stroke.batchId = batchId
+  }
+  return stroke
 }
 
 export function sanitizeChatMessage(input, limits) {

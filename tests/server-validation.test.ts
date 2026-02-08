@@ -81,4 +81,31 @@ describe('server validation', () => {
     expect(stroke?.size).toBe(50)
     expect(stroke?.id.startsWith('stroke-')).toBe(true)
   })
+
+  it('sanitizes optional stroke batch ids', () => {
+    const limits = { maxStrokePoints: 4 }
+    const withBatch = sanitizeStroke(
+      {
+        batchId: '  batch-123  ',
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+      },
+      limits,
+    )
+    expect(withBatch?.batchId).toBe('batch-123')
+
+    const withoutBatch = sanitizeStroke(
+      {
+        batchId: 42,
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+      },
+      limits,
+    )
+    expect(withoutBatch?.batchId).toBeUndefined()
+  })
 })

@@ -18,6 +18,7 @@ type Point = { x: number; y: number }
 
 type Stroke = {
   id: string
+  batchId?: string
   color: string
   size: number
   tool: 'pen' | 'eraser'
@@ -78,6 +79,7 @@ const LIMITS = {
   maxMessages: 200,
   maxStrokes: 1000,
 }
+const STROKE_BATCH_WINDOW_MS = 900
 
 function isEditableTarget(target: EventTarget | null) {
   if (!target) return false
@@ -129,6 +131,13 @@ function App() {
   const socketRef = useRef<Socket | null>(null)
   const strokesRef = useRef<Stroke[]>([])
   const drawingRef = useRef<Stroke | null>(null)
+  const strokeBatchRef = useRef<{
+    id: string
+    tool: Stroke['tool']
+    color: string
+    size: number
+    endedAt: number
+  } | null>(null)
   const cursorRafRef = useRef<number | null>(null)
   const pendingCursorRef = useRef<Point | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -487,8 +496,18 @@ function App() {
     canvas.setPointerCapture(event.pointerId)
     const rect = canvas.getBoundingClientRect()
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    const now = Date.now()
+    const previousBatch = strokeBatchRef.current
+    const canReuseBatch =
+      previousBatch &&
+      now - previousBatch.endedAt <= STROKE_BATCH_WINDOW_MS &&
+      previousBatch.tool === tool &&
+      previousBatch.color === color &&
+      previousBatch.size === size
+    const batchId = canReuseBatch ? previousBatch.id : createId('batch')
     const stroke: Stroke = {
       id: createId('stroke'),
+      batchId,
       color,
       size,
       tool,
@@ -518,6 +537,13 @@ function App() {
     event.currentTarget.releasePointerCapture(event.pointerId)
     const stroke = drawingRef.current
     drawingRef.current = null
+    strokeBatchRef.current = {
+      id: stroke.batchId || createId('batch'),
+      tool: stroke.tool,
+      color: stroke.color,
+      size: stroke.size,
+      endedAt: Date.now(),
+    }
     strokesRef.current = [...strokesRef.current, stroke].slice(-LIMITS.maxStrokes)
     socketRef.current?.emit('stroke:add', stroke)
   }
