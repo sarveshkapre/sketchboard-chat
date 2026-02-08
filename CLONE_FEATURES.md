@@ -12,6 +12,7 @@
 - [ ] P1 Security: Add optional lightweight auth guard for production deployments.
 - [ ] P1 Quality: Add API/integration tests for socket moderation flows (`room:lock`, `room:kick`, `role:set`).
 - [ ] P2 DX: Add an automated smoke workflow that boots the built server and curls `/health` in CI.
+- [ ] P2 CI: Upgrade `github/codeql-action` from `v3` to `v4` before deprecation in December 2026.
 
 ## Implemented
 - [x] (2026-02-08) P1 Feature: Grouped stroke action undo/redo using stroke `batchId` metadata. Evidence: `src/App.tsx`, `server/stroke-history.mjs`, `server/validation.mjs`.
@@ -25,6 +26,7 @@
 - Express 5 rejects legacy `app.get('*')` patterns; use `/{*path}` for SPA fallback routing.
 - Undo/redo UX improves notably when actions are batched by short drawing bursts instead of single-stroke granularity.
 - Stabilizing CI secret scanning requires reliable git history availability in runners.
+- GitHub Actions currently warns that CodeQL Action `v3` is deprecated and should be upgraded to `v4`.
 
 ## Notes
 - This file is maintained by the autonomous clone loop.
