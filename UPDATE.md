@@ -1,3 +1,20 @@
+# Update (2026-02-08)
+
+## Shipped
+- Grouped stroke undo/redo actions: quick consecutive strokes now share a batch ID and undo/redo together.
+- Express 5 production startup fix: SPA fallback route updated to `/{*path}`.
+- CI hardening: build job checkout now uses full git history (`fetch-depth: 0`) to stabilize secret scan history lookups.
+
+## Verified
+- `npm run check`
+
+## Manual smoke
+- `npm run start`
+- `curl http://localhost:4000/health` -> `{"status":"ok"}`
+- `curl http://localhost:4000/api/rooms` -> `{"rooms":[]}`
+
+---
+
 # Update (2026-02-03)
 
 ## Shipped

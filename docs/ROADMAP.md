@@ -21,6 +21,7 @@
 - Room roles (owner/mod) with in-room moderation.
 - Room activity log for moderation changes.
 - Chat reactions and pinned messages.
+- Stroke action batching for grouped undo/redo.
 
 ## Later
 - Image import + stickers.

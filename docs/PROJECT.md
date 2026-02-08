@@ -28,6 +28,6 @@ Chat supports emoji reactions and a single pinned message per room.
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Add per-user stroke grouping (better undo UX).
+1. Add room settings drawer (lock, invite, role controls in one place).
 2. Add basic auth (optional, lightweight).
 3. Add room invite links (limited duration).

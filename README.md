@@ -7,7 +7,7 @@ Realtime sketching board with multiplayer presence and chat. Draw together, see 
 - Multiplayer presence with live cursors
 - Group chat panel
 - Room-based sessions via `?room=...`
-- Undo/redo (per-user, synced)
+- Undo/redo (per-user, action-grouped, synced)
 - User profiles (display name + color)
 - Room roles (owner/mod) with in-room moderation
 - Room activity log for moderation changes

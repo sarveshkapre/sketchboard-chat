@@ -57,5 +57,4 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 
 ## What should ship next
 - Optional: readonly/share links and "spectator" mode.
-- Stroke grouping by user (for better undo UX).
 - Room settings drawer (lock, invite, roles).
