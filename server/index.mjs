@@ -336,7 +336,7 @@ app.post('/api/rooms/:roomId/unlock', (req, res) => {
 const distPath = path.resolve(__dirname, '../dist')
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath))
-  app.get('*', (_req, res) => {
+  app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'))
   })
 }
@@ -579,12 +579,15 @@ io.on('connection', async (socket) => {
     }
 
     const removed = undoLastStroke(room.strokes, room.redoByUser, socket.id)
-    if (!removed) {
+    if (!removed || removed.length === 0) {
       socket.emit('notice', { kind: 'info', message: 'Nothing to undo.' })
       return
     }
     persistence.scheduleSave(roomId, room)
-    io.to(roomId).emit('stroke:remove', { id: removed.id })
+    for (const stroke of removed) {
+      if (!stroke?.id) continue
+      io.to(roomId).emit('stroke:remove', { id: stroke.id })
+    }
   })
 
   socket.on('stroke:redo', () => {
@@ -604,15 +607,17 @@ io.on('connection', async (socket) => {
     }
 
     const restored = redoLastStroke(room.strokes, room.redoByUser, socket.id)
-    if (!restored) {
+    if (!restored || restored.length === 0) {
       socket.emit('notice', { kind: 'info', message: 'Nothing to redo.' })
       return
     }
-    if (room.strokes.length > LIMITS.maxStrokes) {
+    while (room.strokes.length > LIMITS.maxStrokes) {
       room.strokes.shift()
     }
     persistence.scheduleSave(roomId, room)
-    io.to(roomId).emit('stroke:add', restored)
+    for (const stroke of restored) {
+      io.to(roomId).emit('stroke:add', stroke)
+    }
   })
 
   socket.on('board:clear', () => {
