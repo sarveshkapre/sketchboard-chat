@@ -8,6 +8,7 @@
 - Typecheck: `npm run typecheck`
 - Build: `npm run build`
 - Full gate: `npm run check`
+- Smoke: `npm run smoke`
 
 ## Rooms
 Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
@@ -20,6 +21,7 @@ Rooms can optionally be made invite-only (requires `INVITE_SECRET`); moderators 
 ## Environment
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod)
+- `AUTH_TOKEN` (server): optional access token for Socket.IO connections (client prompts and reconnects if required)
 - `ADMIN_TOKEN` (server): optional bearer token for admin endpoints (e.g. `/api/rooms`)
 - `INVITE_SECRET` (server): optional secret used to sign invite links (enables invite-only rooms)
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
@@ -30,6 +32,6 @@ Rooms can optionally be made invite-only (requires `INVITE_SECRET`); moderators 
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Add basic auth (optional, lightweight) for production deployments.
-2. Invite UX: selectable invite TTL + regenerate/revoke flow.
-3. Image import + stickers.
+1. Image import + stickers.
+2. Room inactivity GC to avoid unbounded in-memory growth.
+3. Admin rooms list badges/filters for `invite-only` and `locked`.

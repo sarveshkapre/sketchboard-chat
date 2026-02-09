@@ -7,18 +7,19 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] P1 Security: Add optional lightweight auth guard for production deployments.
-- [ ] P2 UX: When a user is rejected from an invite-only room, show a reconnect UI to paste an invite token (vs silent disconnect).
-- [ ] P2 Feature: Invite UX: selectable TTL (5m/15m/1h/24h) + regenerate link button.
-- [ ] P2 UX: Make "Copy link" context-aware: for invite-only rooms, prefer copying the last invite (or prompt to create one).
 - [ ] P2 Admin: Show `Invite-only` and `Locked` badges in the rooms list, and add quick filters for those states.
 - [ ] P2 Reliability: Add inactivity GC for rooms (drop in-memory state after N minutes idle unless `PERSIST=1`).
 - [ ] P2 Performance: Reduce full-canvas redraw frequency by drawing incremental strokes to an offscreen buffer and blitting.
-- [ ] P2 DX: Add `npm run smoke` (start server, curl `/health`, stop) and use it in CI.
-- [ ] P2 Docs: Add a production deployment guide (CORS allowlist, `INVITE_SECRET`, `ADMIN_TOKEN`, reverse proxy hints).
+- [ ] P2 Feature: Image import + stickers.
 - [ ] P3 Feature: Voice rooms (push-to-talk).
 
 ## Implemented
+- [x] (2026-02-09) P2 DX: Added `npm run smoke` and switched CI smoke to use it. Evidence: `scripts/smoke.mjs`, `package.json`, `.github/workflows/ci.yml`.
+- [x] (2026-02-09) P1 Security: Added optional socket access guard via `AUTH_TOKEN`, with a client prompt/reconnect flow. Evidence: `server/index.mjs`, `src/authStorage.ts`, `src/App.tsx`, `tests/socket-auth-guard.test.ts`.
+- [x] (2026-02-09) P2 UX: When rejected from an invite-only room, show a reconnect UI to paste an invite link/token. Evidence: `src/App.tsx`, `src/App.css`.
+- [x] (2026-02-09) P2 Feature: Invite UX improvements: selectable TTL + regenerate/revoke. Evidence: `server/index.mjs`, `server/invite.mjs`, `server/persistence.mjs`, `src/App.tsx`, `tests/invite.test.ts`, `tests/persistence.test.ts`.
+- [x] (2026-02-09) P2 UX: Made "Copy link" context-aware for invite-only rooms. Evidence: `src/App.tsx`, `src/room.ts`.
+- [x] (2026-02-09) P2 Docs: Added a production deployment guide. Evidence: `docs/DEPLOYMENT.md`, `README.md`.
 - [x] (2026-02-09) P2 Feature: Added invite-only rooms with expiring, signed invite links (server-validated). Evidence: `server/invite.mjs`, `server/index.mjs`, `src/App.tsx`, `tests/invite.test.ts`, `tests/socket-moderation.test.ts`.
 - [x] (2026-02-09) P2 UX: Persisted user profile locally and auto-applied on connect. Evidence: `src/profileStorage.ts`, `src/App.tsx`, `tests/profileStorage.test.ts`.
 - [x] (2026-02-09) P1 Feature: Added dedicated room settings drawer consolidating join/share/moderation and reduced sidebar/toolbar clutter. Evidence: `src/App.tsx`, `src/App.css`.
@@ -37,6 +38,8 @@
 - Undo/redo UX improves notably when actions are batched by short drawing bursts instead of single-stroke granularity.
 - Stabilizing CI secret scanning requires reliable git history availability in runners.
 - CodeQL Action `v4` is the supported baseline going forward (v3 is deprecated).
+- Invite regen/revoke can be done safely without storing tokens by versioning invites (embed a version in the signed payload and reject mismatches).
+- A lightweight deployment guard can be implemented as an optional Socket.IO handshake token (`AUTH_TOKEN`) without changing the HTTP healthcheck.
 - Market baseline: realtime whiteboards typically ship share links and fine-grained access modes (view/comment/edit), with optional expiring links/passwords for public sharing. Sources: `https://help.miro.com/hc/en-us/articles/360017730893-Invite-people-to-collaborate-on-your-board`, `https://help.miro.com/hc/en-us/articles/360017572454-Share-boards-and-projects`.
 - Collaboration baseline: tools like Excalidraw and tldraw emphasize lightweight "share a link to collaborate" flows. Sources: `https://docs.excalidraw.com/docs/@excalidraw/excalidraw/`, `https://tldraw.dev/`.
 
