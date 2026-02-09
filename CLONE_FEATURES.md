@@ -7,14 +7,15 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] P1 Feature: Add a dedicated room settings drawer (lock, invite, role controls in one place) to reduce panel clutter.
-- [ ] P1 Feature: Add limited-duration invite links with server-side validation for private room sharing.
-- [ ] P1 Security: Add optional lightweight auth guard for production deployments.
+- [ ] P1 DX: Add an automated smoke workflow that boots the built server and curls `/health` in CI.
 - [ ] P1 Quality: Add API/integration tests for socket moderation flows (`room:lock`, `room:kick`, `role:set`).
-- [ ] P2 DX: Add an automated smoke workflow that boots the built server and curls `/health` in CI.
-- [ ] P2 CI: Upgrade `github/codeql-action` from `v3` to `v4` before deprecation in December 2026.
+- [ ] P1 Feature: Add a dedicated room settings drawer (lock, share links, role/kick controls in one place) to reduce panel clutter.
+- [ ] P2 UX: Persist user profile (name + color) locally and auto-apply it on connect (so refreshes don't randomize identity).
+- [ ] P2 Feature: Add limited-duration invite links with server-side validation for private room sharing.
+- [ ] P2 Security: Add optional lightweight auth guard for production deployments.
 
 ## Implemented
+- [x] (2026-02-09) P1 CI: Upgraded `github/codeql-action` from `v3` to `v4`. Evidence: `.github/workflows/ci.yml`.
 - [x] (2026-02-08) P1 Feature: Grouped stroke action undo/redo using stroke `batchId` metadata. Evidence: `src/App.tsx`, `server/stroke-history.mjs`, `server/validation.mjs`.
 - [x] (2026-02-08) P1 Quality: Added grouped history and stroke batch sanitization tests. Evidence: `tests/stroke-history.test.ts`, `tests/server-validation.test.ts`.
 - [x] (2026-02-08) P0 Reliability: Fixed production startup crash on Express 5 wildcard fallback route. Evidence: `server/index.mjs`.
@@ -26,7 +27,7 @@
 - Express 5 rejects legacy `app.get('*')` patterns; use `/{*path}` for SPA fallback routing.
 - Undo/redo UX improves notably when actions are batched by short drawing bursts instead of single-stroke granularity.
 - Stabilizing CI secret scanning requires reliable git history availability in runners.
-- GitHub Actions currently warns that CodeQL Action `v3` is deprecated and should be upgraded to `v4`.
+- CodeQL Action `v4` is the supported baseline going forward (v3 is deprecated).
 
 ## Notes
 - This file is maintained by the autonomous clone loop.
