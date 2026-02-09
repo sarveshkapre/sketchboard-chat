@@ -793,5 +793,7 @@ io.on('connection', async (socket) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`Sketchboard server running on http://localhost:${PORT}`)
+  const address = server.address()
+  const port = address && typeof address === 'object' ? address.port : PORT
+  console.log(`Sketchboard server running on http://localhost:${port}`)
 })
