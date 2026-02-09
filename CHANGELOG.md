@@ -23,6 +23,7 @@
 - Chat reactions and pinned messages.
 - Presence/chat UX improvements (cursor deltas, throttled cursor emits, author metadata, chat autoscroll).
 - Grouped stroke undo/redo actions via stroke `batchId` (quick consecutive strokes from one user undo/redo together).
+- Optional invite-only rooms with expiring invite links (requires `INVITE_SECRET`).
 - Fixed production startup crash on Express 5 by switching the SPA fallback route to `/{*path}`.
 - CI hardening: `actions/checkout` now uses `fetch-depth: 0` in the build job for stable secret scan history.
 
