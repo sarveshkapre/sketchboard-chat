@@ -5,6 +5,29 @@ import path from 'node:path'
 import { describe, expect, it, beforeAll, afterAll } from 'vitest'
 import { io as clientIo, type Socket } from 'socket.io-client'
 
+type InitPayload = {
+  selfId: string
+  locked: boolean
+}
+
+type PublicUser = {
+  id: string
+  name?: string
+  color?: string
+  role?: 'owner' | 'mod' | 'member'
+}
+
+type Notice =
+  | { kind: 'info'; message: string }
+  | { kind: 'rate_limited'; scope: string; retryAfterMs: number }
+
+function assertInitPayload(payload: unknown): asserts payload is InitPayload {
+  if (!payload || typeof payload !== 'object') throw new Error('Invalid init payload')
+  const record = payload as Record<string, unknown>
+  if (typeof record.selfId !== 'string') throw new Error('Invalid init payload: selfId')
+  if (typeof record.locked !== 'boolean') throw new Error('Invalid init payload: locked')
+}
+
 function waitForEvent<T>(socket: Socket, event: string, timeoutMs = 3000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -23,16 +46,16 @@ function waitForEvent<T>(socket: Socket, event: string, timeoutMs = 3000): Promi
 
 function waitForPresence(
   socket: Socket,
-  predicate: (users: any[]) => boolean,
+  predicate: (users: PublicUser[]) => boolean,
   timeoutMs = 3000,
-): Promise<any[]> {
+): Promise<PublicUser[]> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       socket.off('presence:update', onUpdate)
       reject(new Error('Timed out waiting for presence:update condition'))
     }, timeoutMs)
 
-    const onUpdate = (users: any[]) => {
+    const onUpdate = (users: PublicUser[]) => {
       if (!Array.isArray(users)) return
       if (!predicate(users)) return
       clearTimeout(timeout)
@@ -54,7 +77,7 @@ async function connectClient({
   room: string
   userKey: string
   mode?: 'edit' | 'view'
-}): Promise<{ socket: Socket; init: any }> {
+}): Promise<{ socket: Socket; init: InitPayload }> {
   const socket = clientIo(`http://localhost:${port}`, {
     transports: ['websocket'],
     forceNew: true,
@@ -62,7 +85,9 @@ async function connectClient({
     auth: { room, mode, userKey },
   })
 
-  const init = await waitForEvent<any>(socket, 'init', 5000)
+  const initRaw = await waitForEvent<unknown>(socket, 'init', 5000)
+  assertInitPayload(initRaw)
+  const init = initRaw
   return { socket, init }
 }
 
@@ -136,7 +161,7 @@ describe('socket moderation flows', () => {
 
     // Member cannot chat while locked.
     member.socket.emit('chat:message', { id: 'm1', text: 'hello' })
-    const notice = await waitForEvent<any>(member.socket, 'notice')
+    const notice = await waitForEvent<Notice>(member.socket, 'notice')
     expect(notice.kind).toBe('info')
     expect(String(notice.message)).toMatch(/locked/i)
 
@@ -166,13 +191,13 @@ describe('socket moderation flows', () => {
 
     // Mod cannot change roles.
     mod.socket.emit('role:set', { userId: member.init.selfId, role: 'mod' })
-    const notice = await waitForEvent<any>(mod.socket, 'notice')
+    const notice = await waitForEvent<Notice>(mod.socket, 'notice')
     expect(notice.kind).toBe('info')
     expect(String(notice.message)).toMatch(/only the owner/i)
 
     // Mod cannot kick owner.
     mod.socket.emit('room:kick', { userId: owner.init.selfId })
-    const noticeKick = await waitForEvent<any>(mod.socket, 'notice')
+    const noticeKick = await waitForEvent<Notice>(mod.socket, 'notice')
     expect(noticeKick.kind).toBe('info')
     expect(String(noticeKick.message)).toMatch(/mods can only remove members|only the owner/i)
 
@@ -187,7 +212,7 @@ describe('socket moderation flows', () => {
     const member = await connectClient({ port, room, userKey: 'member-3' })
 
     owner.socket.emit('room:kick', { userId: member.init.selfId })
-    const kickedNotice = await waitForEvent<any>(member.socket, 'notice')
+    const kickedNotice = await waitForEvent<Notice>(member.socket, 'notice')
     expect(kickedNotice.kind).toBe('info')
     expect(String(kickedNotice.message)).toMatch(/removed/i)
 
