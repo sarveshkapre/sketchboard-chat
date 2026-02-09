@@ -23,21 +23,7 @@ jobs:
       - name: Quality gate
         run: npm run check
       - name: Smoke (server /health)
-        run: |
-          set -euo pipefail
-          PORT=4100 node server/index.mjs &
-          pid=$!
-          trap "kill $pid 2>/dev/null || true" EXIT
-
-          for _ in $(seq 1 30); do
-            if curl -fsS "http://localhost:4100/health" >/dev/null; then
-              curl -fsS "http://localhost:4100/health"
-              exit 0
-            fi
-            sleep 0.5
-          done
-
-          curl -fsS "http://localhost:4100/health"
+        run: npm run smoke
       - name: NPM audit
         run: npm audit --audit-level=high
       - name: Secret scan
