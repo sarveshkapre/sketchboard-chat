@@ -7,11 +7,12 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
+- [ ] P1 Performance (selected): Optimize in-progress drawing by rendering only the newest stroke segment on pointermove (avoid re-stroking the full path each frame).
+- [ ] P1 Security (selected): Add a production guardrail when `CORS_ORIGIN=*` (warn loudly or refuse to start unless explicitly allowed).
+- [ ] P1 Quality (selected): Add a deterministic "room isolation" smoke that opens two Socket.IO rooms and verifies strokes/messages do not leak.
 - [ ] P2 Performance: Reduce full-canvas redraw frequency by drawing committed strokes to an offscreen buffer and blitting.
 - [ ] P2 Feature: Image import on canvas (drag/drop + paste), with server-side size caps + validation + opt-in persistence.
 - [ ] P2 Feature: Stickers tool (emoji/stamps) that syncs as first-class board elements (not strokes).
-- [ ] P2 Security: Add a production warning (or stricter default) when `CORS_ORIGIN=*` and `NODE_ENV=production`.
-- [ ] P2 Quality: Add a dev smoke script that opens two rooms and validates isolation (Playwright optional).
 - [ ] P3 UX: Mobile/touch drawing polish (palm rejection, better toolbar sizing, scroll/zoom ergonomics).
 - [ ] P3 Feature: Voice rooms (push-to-talk).
 
