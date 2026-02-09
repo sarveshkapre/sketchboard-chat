@@ -484,6 +484,8 @@ function App() {
   const [roomsMetrics, setRoomsMetrics] = useState<RoomMetrics[]>([])
   const [roomsFilter, setRoomsFilter] = useState('')
   const [roomsAutoRefresh, setRoomsAutoRefresh] = useState(true)
+  const [roomsOnlyLocked, setRoomsOnlyLocked] = useState(false)
+  const [roomsOnlyInviteOnly, setRoomsOnlyInviteOnly] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [accessBlock, setAccessBlock] = useState<{ kind: 'invite' | 'auth'; message: string } | null>(
     null,
@@ -1419,6 +1421,24 @@ function App() {
                   />
                   Auto refresh
                 </label>
+                <div className="rooms-quick-filters" aria-label="Room quick filters">
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={roomsOnlyLocked}
+                      onChange={(event) => setRoomsOnlyLocked(event.target.checked)}
+                    />
+                    Locked only
+                  </label>
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={roomsOnlyInviteOnly}
+                      onChange={(event) => setRoomsOnlyInviteOnly(event.target.checked)}
+                    />
+                    Invite-only only
+                  </label>
+                </div>
                 {adminError ? <p className="muted">{adminError}</p> : null}
                 <ul className="rooms-list">
                   {roomsMetrics
@@ -1427,67 +1447,75 @@ function App() {
                         ? room.roomId.toLowerCase().includes(roomsFilter.trim().toLowerCase())
                         : true,
                     )
+                    .filter((room) => (!roomsOnlyLocked ? true : Boolean(room.locked)))
+                    .filter((room) => (!roomsOnlyInviteOnly ? true : Boolean(room.private)))
                     .map((room) => (
-                    <li key={room.roomId}>
-                      <button
-                        type="button"
-                        className={room.roomId === roomId ? 'room-link active' : 'room-link'}
-                        onClick={() => {
-                          const url = viewOnly
-                            ? buildViewUrl(window.location.href, room.roomId)
-                            : buildRoomUrl(window.location.href, room.roomId)
-                          window.location.assign(url)
-                        }}
-                      >
-                        <span className="room-name">{room.roomId}</span>
-                        <span className="room-meta">
-                          {room.usersCount} users · {room.strokesCount} strokes ·{' '}
-                          {room.messagesCount} msgs
-                        </span>
-	                        <span className="room-meta">
-	                          {room.locked ? 'Locked' : 'Unlocked'}
-	                          {room.private ? ' · Invite-only' : ''}
-	                        </span>
-	                      </button>
-                      {adminToken.trim() ? (
-                        <div className="room-admin-actions">
-                          <button
-                            type="button"
-                            className="lock-toggle"
-                            onClick={() => handleLockToggle(room.roomId, !room.locked)}
-                            disabled={adminLoading}
-                          >
-                            {room.locked ? 'Unlock' : 'Lock'}
-                          </button>
-                        </div>
-                      ) : null}
-                      {room.users && room.users.length > 0 ? (
-                        <ul className="room-users" aria-label={`Users in ${room.roomId}`}>
-                          {room.users.map((user) => (
-                            <li key={user.id} className="room-user">
-                              <span
-                                className="badge"
-                                style={{ background: user.color }}
-                                aria-hidden="true"
-                              />
-                              <span className="room-user-name">{user.name}</span>
-                              {user.role ? (
-                                <span className="room-user-role">{user.role}</span>
+                      <li key={room.roomId}>
+                        <button
+                          type="button"
+                          className={room.roomId === roomId ? 'room-link active' : 'room-link'}
+                          onClick={() => {
+                            const url = viewOnly
+                              ? buildViewUrl(window.location.href, room.roomId)
+                              : buildRoomUrl(window.location.href, room.roomId)
+                            window.location.assign(url)
+                          }}
+                        >
+                          <span className="room-line">
+                            <span className="room-name">{room.roomId}</span>
+                            <span className="room-badges" aria-label="Room badges">
+                              {room.locked ? (
+                                <span className="room-badge locked">Locked</span>
                               ) : null}
-                              <button
-                                type="button"
-                                className="kick"
-                                onClick={() => handleKick(room.roomId, user.id, user.name)}
-                                disabled={adminLoading}
-                              >
-                                Kick
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </li>
-                  ))}
+                              {room.private ? (
+                                <span className="room-badge private">Invite-only</span>
+                              ) : null}
+                            </span>
+                          </span>
+                          <span className="room-meta">
+                            {room.usersCount} users · {room.strokesCount} strokes ·{' '}
+                            {room.messagesCount} msgs
+                          </span>
+                        </button>
+                        {adminToken.trim() ? (
+                          <div className="room-admin-actions">
+                            <button
+                              type="button"
+                              className="lock-toggle"
+                              onClick={() => handleLockToggle(room.roomId, !room.locked)}
+                              disabled={adminLoading}
+                            >
+                              {room.locked ? 'Unlock' : 'Lock'}
+                            </button>
+                          </div>
+                        ) : null}
+                        {room.users && room.users.length > 0 ? (
+                          <ul className="room-users" aria-label={`Users in ${room.roomId}`}>
+                            {room.users.map((user) => (
+                              <li key={user.id} className="room-user">
+                                <span
+                                  className="badge"
+                                  style={{ background: user.color }}
+                                  aria-hidden="true"
+                                />
+                                <span className="room-user-name">{user.name}</span>
+                                {user.role ? (
+                                  <span className="room-user-role">{user.role}</span>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className="kick"
+                                  onClick={() => handleKick(room.roomId, user.id, user.name)}
+                                  disabled={adminLoading}
+                                >
+                                  Kick
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </li>
+                    ))}
                   {roomsMetrics.length === 0 && !adminLoading ? (
                     <li className="muted">No active rooms.</li>
                   ) : null}

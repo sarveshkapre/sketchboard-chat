@@ -404,6 +404,12 @@ canvas {
   accent-color: var(--accent-2);
 }
 
+.rooms-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .rooms-list {
   list-style: none;
   padding: 0;
@@ -495,6 +501,43 @@ canvas {
 .room-name {
   font-family: 'Space Mono', monospace;
   font-size: 13px;
+}
+
+.room-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.room-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.room-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: 'Space Mono', monospace;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.room-badge.locked {
+  border-color: rgba(255, 107, 107, 0.35);
+  background: rgba(255, 107, 107, 0.12);
+  color: #ffd1d1;
+}
+
+.room-badge.private {
+  border-color: rgba(241, 91, 181, 0.45);
+  background: rgba(241, 91, 181, 0.12);
+  color: #ffbde3;
 }
 
 .room-meta {
