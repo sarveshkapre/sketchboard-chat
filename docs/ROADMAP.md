@@ -1,9 +1,12 @@
 # ROADMAP
 
 ## Near-term
-- Room settings drawer (lock, invite, roles).
+- Optional lightweight auth guard for production deployments.
+- Invite UX: selectable invite TTL + regenerate/revoke flow.
+- Image import + stickers.
 
 ## Done
+- Room settings drawer (lock, invite, roles).
 - Room-based sessions.
 - SVG export.
 - Basic server-side rate limits.
@@ -22,8 +25,8 @@
 - Room activity log for moderation changes.
 - Chat reactions and pinned messages.
 - Stroke action batching for grouped undo/redo.
+- Optional invite-only rooms with expiring invite links.
 
 ## Later
-- Image import + stickers.
 - Voice rooms.
 - Lightweight persistence.
