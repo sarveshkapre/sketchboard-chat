@@ -15,18 +15,19 @@ function timingSafeEqual(a, b) {
   return crypto.timingSafeEqual(aBuf, bBuf)
 }
 
-export function createInviteToken({ roomId, expiresAtMs, secret }) {
+export function createInviteToken({ roomId, expiresAtMs, secret, version = 0 }) {
   if (!secret) return null
   if (!roomId) return null
   if (!Number.isFinite(expiresAtMs)) return null
 
-  const payload = { v: 1, roomId, exp: Math.floor(expiresAtMs) }
+  const normalizedVersion = Number.isFinite(version) ? Math.max(0, Math.floor(version)) : 0
+  const payload = { v: 1, roomId, exp: Math.floor(expiresAtMs), n: normalizedVersion }
   const encoded = base64UrlEncode(JSON.stringify(payload))
   const sig = crypto.createHmac('sha256', secret).update(encoded).digest('base64url')
   return `${encoded}.${sig}`
 }
 
-export function verifyInviteToken({ token, roomId, secret, nowMs = Date.now() }) {
+export function verifyInviteToken({ token, roomId, secret, nowMs = Date.now(), version }) {
   if (!token || typeof token !== 'string') return { ok: false, reason: 'missing' }
   if (!secret) return { ok: false, reason: 'disabled' }
 
@@ -49,6 +50,9 @@ export function verifyInviteToken({ token, roomId, secret, nowMs = Date.now() })
   if (typeof parsed.roomId !== 'string' || parsed.roomId !== roomId) return { ok: false, reason: 'room' }
   if (!Number.isFinite(parsed.exp)) return { ok: false, reason: 'exp' }
   if (nowMs > parsed.exp) return { ok: false, reason: 'expired' }
+
+  const tokenVersion = Number.isFinite(parsed.n) ? parsed.n : 0
+  if (Number.isFinite(version) && tokenVersion !== Math.floor(version)) return { ok: false, reason: 'version' }
 
   return { ok: true, exp: parsed.exp }
 }

@@ -30,6 +30,7 @@ View-only example: `http://localhost:5173/r/team-1?mode=view`
 ## Configuration
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod, e.g. `https://example.com,https://www.example.com`)
+- `AUTH_TOKEN` (server): optional access token. If set, Socket.IO clients must provide it (the client will prompt for it on connect).
 - `ADMIN_TOKEN` (server): optional bearer token for admin endpoints (e.g. `/api/rooms`)
 - `INVITE_SECRET` (server): optional secret used to sign invite links (enables invite-only rooms)
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
@@ -67,4 +68,4 @@ docker run --rm -p 4000:4000 sketchboard-chat
 ```
 
 ## Repo docs
-Most repository docs live in `docs/` (see also `PLAN.md`, `CHANGELOG.md`, and `UPDATE.md` at the repo root).
+Most repository docs live in `docs/` (see also `PLAN.md`, `CHANGELOG.md`, and `UPDATE.md` at the repo root). For deployment notes see `docs/DEPLOYMENT.md`.

@@ -117,6 +117,7 @@ function createRoomState() {
     redoByUser: new Map(),
     locked: false,
     private: false,
+    inviteVersion: 0,
     rolesByKey: new Map(),
     ownerKey: null,
     hydrated: false,
@@ -158,6 +159,9 @@ function getRoom(roomId) {
           }
           if (typeof loaded.private === 'boolean') {
             created.private = loaded.private
+          }
+          if (Number.isFinite(loaded.inviteVersion)) {
+            created.inviteVersion = Math.max(0, Math.floor(loaded.inviteVersion))
           }
         }
       })
@@ -210,6 +214,11 @@ app.get('/health', (_req, res) => {
 
 function getAdminToken() {
   const token = process.env.ADMIN_TOKEN
+  return typeof token === 'string' && token.trim() ? token.trim() : null
+}
+
+function getAuthToken() {
+  const token = process.env.AUTH_TOKEN
   return typeof token === 'string' && token.trim() ? token.trim() : null
 }
 
@@ -364,6 +373,27 @@ if (fs.existsSync(distPath)) {
 }
 
 io.on('connection', async (socket) => {
+  const requiredAuthToken = getAuthToken()
+  const rawAuthToken = [
+    typeof socket.handshake.auth?.authToken === 'string' ? socket.handshake.auth.authToken : null,
+    typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : null,
+    typeof socket.handshake.query?.authToken === 'string' ? socket.handshake.query.authToken : null,
+    typeof socket.handshake.query?.token === 'string' ? socket.handshake.query.token : null,
+  ].find((candidate) => typeof candidate === 'string' && candidate.trim())
+  if (requiredAuthToken) {
+    const provided = typeof rawAuthToken === 'string' ? rawAuthToken.trim() : ''
+    if (!provided) {
+      socket.emit('notice', { kind: 'info', message: 'Access token required for this server.' })
+      setTimeout(() => socket.disconnect(true), 30)
+      return
+    }
+    if (provided !== requiredAuthToken) {
+      socket.emit('notice', { kind: 'info', message: 'Invalid access token.' })
+      setTimeout(() => socket.disconnect(true), 30)
+      return
+    }
+  }
+
   const rawRoom =
     socket.handshake.auth?.room ??
     (typeof socket.handshake.query?.room === 'string' ? socket.handshake.query.room : '')
@@ -394,7 +424,7 @@ io.on('connection', async (socket) => {
     const canBypassInvite = role === ROLE_OWNER || role === ROLE_MOD
     if (!canBypassInvite) {
       const secret = getInviteSecret()
-      const verified = verifyInviteToken({ token: inviteToken, roomId, secret })
+      const verified = verifyInviteToken({ token: inviteToken, roomId, secret, version: room.inviteVersion })
       if (!verified.ok) {
         socket.emit('notice', { kind: 'info', message: 'Invite link required for this room.' })
         setTimeout(() => socket.disconnect(true), 30)
@@ -572,10 +602,44 @@ io.on('connection', async (socket) => {
     const ttlMsRaw = payload?.ttlMs
     const ttlMs = Number.isFinite(ttlMsRaw) ? Math.floor(ttlMsRaw) : 15 * 60 * 1000
     const clamped = Math.max(60_000, Math.min(24 * 60 * 60 * 1000, ttlMs))
+    const rotate = payload?.rotate === true
+    if (!Number.isFinite(room.inviteVersion)) room.inviteVersion = 0
+    if (rotate) {
+      room.inviteVersion = Math.max(0, Math.floor(room.inviteVersion)) + 1
+      addAudit(roomId, room, createAuditEntry({ kind: 'invite', actor: user, role: 'regenerated' }))
+    } else {
+      addAudit(roomId, room, createAuditEntry({ kind: 'invite', actor: user, role: 'created' }))
+    }
     const expMs = Date.now() + clamped
-    const token = createInviteToken({ roomId, expiresAtMs: expMs, secret })
+    const token = createInviteToken({ roomId, expiresAtMs: expMs, secret, version: room.inviteVersion })
     if (!token) return
-    socket.emit('invite:created', { token, expiresAt: new Date(expMs).toISOString() })
+    socket.emit('invite:created', {
+      token,
+      expiresAt: new Date(expMs).toISOString(),
+      version: room.inviteVersion,
+    })
+  })
+
+  socket.on('invite:revoke', () => {
+    const role = getRole(room, userKey)
+    if (!canModerate(role)) {
+      socket.emit('notice', { kind: 'info', message: 'Only moderators can revoke invites.' })
+      return
+    }
+    if (!room.private) {
+      socket.emit('notice', { kind: 'info', message: 'Enable invite-only mode before revoking invites.' })
+      return
+    }
+    const secret = getInviteSecret()
+    if (!secret) {
+      socket.emit('notice', { kind: 'info', message: 'Invite links are disabled on this server.' })
+      return
+    }
+
+    if (!Number.isFinite(room.inviteVersion)) room.inviteVersion = 0
+    room.inviteVersion = Math.max(0, Math.floor(room.inviteVersion)) + 1
+    io.to(roomId).emit('invite:revoked', { version: room.inviteVersion })
+    addAudit(roomId, room, createAuditEntry({ kind: 'invite', actor: user, role: 'revoked' }))
   })
 
   socket.on('room:kick', (payload) => {

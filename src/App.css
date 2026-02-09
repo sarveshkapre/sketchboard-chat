@@ -881,6 +881,19 @@ canvas {
   border-top: 1px dashed rgba(45, 45, 76, 0.8);
 }
 
+.invite-ttl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.invite-ttl select {
+  width: 92px;
+}
+
 .invite-preview {
   display: flex;
   align-items: center;
@@ -890,6 +903,46 @@ canvas {
 
 .invite-preview .muted {
   margin: 0;
+}
+
+.access-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(8, 8, 16, 0.75);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.access-modal {
+  width: min(520px, 100%);
+  border-radius: 16px;
+  padding: 18px;
+  background: rgba(18, 18, 36, 0.95);
+  border: 1px solid rgba(72, 72, 118, 0.65);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.access-modal h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.access-form {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.access-form input {
+  flex: 1;
+}
+
+.access-error {
+  margin: 10px 0 0;
+  color: rgba(255, 107, 107, 0.95);
 }
 
 @media (max-width: 1024px) {

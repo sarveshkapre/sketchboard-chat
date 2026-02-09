@@ -137,6 +137,9 @@ export function createRoomPersistence(options) {
 
     const locked = parsed.locked === true
     const isPrivate = parsed.private === true
+    const inviteVersion = Number.isFinite(parsed.inviteVersion)
+      ? Math.max(0, Math.floor(parsed.inviteVersion))
+      : 0
     const strokes = asArray(parsed.strokes).slice(-limits.maxStrokes)
     const messages = asArray(parsed.messages)
       .map(normalizeMessage)
@@ -158,7 +161,17 @@ export function createRoomPersistence(options) {
       pinnedId = null
     }
 
-    return { strokes, messages, audit, rolesByKey, ownerKey, pinnedId, locked, private: isPrivate }
+    return {
+      strokes,
+      messages,
+      audit,
+      rolesByKey,
+      ownerKey,
+      pinnedId,
+      locked,
+      private: isPrivate,
+      inviteVersion,
+    }
   }
 
   async function saveNow(roomId, room) {
@@ -172,6 +185,7 @@ export function createRoomPersistence(options) {
       savedAt: new Date().toISOString(),
       locked: room?.locked === true,
       private: room?.private === true,
+      inviteVersion: Number.isFinite(room?.inviteVersion) ? Math.max(0, Math.floor(room.inviteVersion)) : 0,
       strokes: asArray(room?.strokes).slice(-limits.maxStrokes),
       messages: asArray(room?.messages)
         .map(normalizeMessage)

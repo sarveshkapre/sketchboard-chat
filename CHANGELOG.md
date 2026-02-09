@@ -4,6 +4,7 @@
 - Room-based sessions via `?room=...` (isolated board state + presence + chat).
 - Clean room URLs via `/r/<room>` (shareable links).
 - Hardened server input handling (CORS origin parsing + validation/caps for strokes, chat, and cursors).
+- Optional socket access guard via `AUTH_TOKEN` (client prompts and reconnects).
 - SVG export for vector sketches.
 - Basic server-side rate limits for chat/drawing spam.
 - Optional disk persistence for rooms (`PERSIST=1`).
@@ -24,11 +25,13 @@
 - Presence/chat UX improvements (cursor deltas, throttled cursor emits, author metadata, chat autoscroll).
 - Grouped stroke undo/redo actions via stroke `batchId` (quick consecutive strokes from one user undo/redo together).
 - Optional invite-only rooms with expiring invite links (requires `INVITE_SECRET`).
+- Invite UX improvements: selectable invite TTL + regenerate/revoke + context-aware copy link.
 - Room settings drawer consolidating join/share/moderation controls.
 - Persisted user profile (name + color) locally and auto-applied on connect.
 - Fixed production startup crash on Express 5 by switching the SPA fallback route to `/{*path}`.
 - CI hardening: `actions/checkout` now uses `fetch-depth: 0` in the build job for stable secret scan history.
 - CI: upgraded CodeQL Action to v4 and added a built-server `/health` smoke step.
+- DX: added `npm run smoke` to run a local server health probe.
 - Quality: added socket integration tests for moderation flows (lock/kick/roles/invites).
 
 ## [0.1.0] - 2026-02-01

@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client'
 import './App.css'
 import {
   buildRoomUrl,
+  buildInviteUrl,
   buildViewUrl,
   getInviteFromUrl,
   getRoomIdFromUrl,
@@ -15,6 +16,7 @@ import { createId, formatTime } from './utils'
 import { fetchRoomsMetrics, kickUser, setRoomLock, type RoomMetrics } from './adminRooms'
 import { getUserKey } from './userKey'
 import { loadLocalProfile, saveLocalProfile } from './profileStorage'
+import { loadLocalAuthToken, saveLocalAuthToken } from './authStorage'
 
 type Point = { x: number; y: number }
 
@@ -44,7 +46,7 @@ type AuditEntry = {
   id: string
   at: string
   text: string
-  kind?: 'lock' | 'unlock' | 'kick' | 'role' | 'owner' | 'privacy'
+  kind?: 'lock' | 'unlock' | 'kick' | 'role' | 'owner' | 'privacy' | 'invite'
 }
 
 type PresenceUser = {
@@ -100,6 +102,28 @@ function getSocketUrl() {
   return `${protocol}//${hostname}${port ? `:${port}` : ''}`
 }
 
+function extractInviteToken(input: string) {
+  const trimmed = (input || '').trim()
+  if (!trimmed) return ''
+  if (trimmed.length > 2048) return ''
+
+  // Accept a full invite URL (we'll extract ?invite=...).
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed)
+      const invite = (parsed.searchParams.get('invite') || '').trim()
+      return invite.length > 1024 ? '' : invite
+    } catch {
+      // fall through and treat as raw token
+    }
+  }
+
+  // Otherwise treat as the raw token.
+  if (trimmed.length > 1024) return ''
+  if (!/^[A-Za-z0-9_.-]+$/.test(trimmed)) return ''
+  return trimmed
+}
+
 function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   if (stroke.points.length < 2) return
   ctx.save()
@@ -143,6 +167,9 @@ function RoomSettingsDrawer({
   onPrivacyToggle,
   canCreateInvites,
   onCreateInvite,
+  inviteTtlMs,
+  onInviteTtlMs,
+  onRevokeInvites,
   inviteLink,
   inviteExpiresAt,
   onCopyInviteLink,
@@ -175,6 +202,9 @@ function RoomSettingsDrawer({
   onPrivacyToggle: () => void
   canCreateInvites: boolean
   onCreateInvite: () => void
+  inviteTtlMs: number
+  onInviteTtlMs: (next: number) => void
+  onRevokeInvites: () => void
   inviteLink: string | null
   inviteExpiresAt: string | null
   onCopyInviteLink: () => void
@@ -259,7 +289,7 @@ function RoomSettingsDrawer({
             ) : null}
             <div className="room-actions">
               <button type="button" onClick={onCopyLink}>
-                {copyStatus === 'copied' ? 'Copied' : 'Copy link'}
+                {copyStatus === 'copied' ? 'Copied' : roomPrivate ? 'Copy invite link' : 'Copy link'}
               </button>
               <button type="button" onClick={onCopyViewLink}>
                 Copy view link
@@ -282,13 +312,34 @@ function RoomSettingsDrawer({
                 />
                 Invite-only
               </label>
+              <label className="invite-ttl">
+                TTL
+                <select
+                  value={String(inviteTtlMs)}
+                  onChange={(event) => onInviteTtlMs(Number(event.target.value))}
+                  disabled={!canCreateInvites || !roomPrivate}
+                >
+                  <option value={String(5 * 60 * 1000)}>5m</option>
+                  <option value={String(15 * 60 * 1000)}>15m</option>
+                  <option value={String(60 * 60 * 1000)}>1h</option>
+                  <option value={String(24 * 60 * 60 * 1000)}>24h</option>
+                </select>
+              </label>
               <button
                 type="button"
                 className="lock-toggle"
                 onClick={onCreateInvite}
                 disabled={!canCreateInvites || !roomPrivate}
               >
-                Create invite link (15m)
+                {inviteLink ? 'Regenerate invite link' : 'Create invite link'}
+              </button>
+              <button
+                type="button"
+                className="room-mini-action"
+                onClick={onRevokeInvites}
+                disabled={!canCreateInvites || !roomPrivate}
+              >
+                Revoke invites
               </button>
               {inviteLink ? (
                 <div className="invite-preview">
@@ -384,6 +435,7 @@ function App() {
   const initialViewOnly = useMemo(() => isViewOnlyFromUrl(window.location.href), [])
   const initialInvite = useMemo(() => getInviteFromUrl(window.location.href), [])
   const userKey = useMemo(() => getUserKey(), [])
+  const initialAuthToken = useMemo(() => loadLocalAuthToken(), [])
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
@@ -413,6 +465,7 @@ function App() {
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null)
+  const [inviteTtlMs, setInviteTtlMs] = useState(15 * 60 * 1000)
   const [color, setColor] = useState(COLORS[0])
   const [size, setSize] = useState(SIZES[1])
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
@@ -432,6 +485,11 @@ function App() {
   const [roomsFilter, setRoomsFilter] = useState('')
   const [roomsAutoRefresh, setRoomsAutoRefresh] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [accessBlock, setAccessBlock] = useState<{ kind: 'invite' | 'auth'; message: string } | null>(
+    null,
+  )
+  const [accessInput, setAccessInput] = useState('')
+  const [accessError, setAccessError] = useState<string | null>(null)
 
   const selfRole = useMemo(
     () => users.find((user) => user.id === selfId)?.role ?? 'member',
@@ -454,9 +512,10 @@ function App() {
         mode: initialViewOnly ? 'view' : 'edit',
         userKey,
         invite: initialInvite ?? undefined,
+        authToken: initialAuthToken ?? undefined,
       },
     })
-  }, [initialRoomId, initialViewOnly, initialInvite, userKey])
+  }, [initialRoomId, initialViewOnly, initialInvite, initialAuthToken, userKey])
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current
@@ -495,6 +554,8 @@ function App() {
     socket.on('disconnect', () => setConnected(false))
 
     socket.on('init', (payload) => {
+      setAccessBlock(null)
+      setAccessError(null)
       setSelfId(payload.selfId)
       if (payload.roomId) {
         setRoomId(payload.roomId)
@@ -510,6 +571,20 @@ function App() {
       }
       if (typeof payload.private === 'boolean') {
         setRoomPrivate(payload.private)
+        if (!payload.private) {
+          setInviteLink(null)
+          setInviteExpiresAt(null)
+        } else {
+          const invite = getInviteFromUrl(window.location.href)
+          if (invite) {
+            const currentRoom =
+              typeof payload.roomId === 'string'
+                ? normalizeRoomId(payload.roomId)
+                : getRoomIdFromUrl(window.location.href)
+            setInviteLink(buildInviteUrl(window.location.href, currentRoom, invite))
+            setInviteExpiresAt(null)
+          }
+        }
       }
       setUsers(payload.users)
       if (Array.isArray(payload.audit)) {
@@ -594,6 +669,10 @@ function App() {
     socket.on('room:privacy', (payload: { private?: boolean }) => {
       if (typeof payload?.private === 'boolean') {
         setRoomPrivate(payload.private)
+        if (!payload.private) {
+          setInviteLink(null)
+          setInviteExpiresAt(null)
+        }
         setToast(payload.private ? 'Room is invite-only.' : 'Room is public.')
       }
     })
@@ -601,9 +680,7 @@ function App() {
     socket.on('invite:created', async (payload: { token?: string; expiresAt?: string }) => {
       if (!payload?.token) return
       const currentRoom = getRoomIdFromUrl(window.location.href)
-      const url = new URL(buildRoomUrl(window.location.href, currentRoom))
-      url.searchParams.set('invite', payload.token)
-      const link = url.toString()
+      const link = buildInviteUrl(window.location.href, currentRoom, payload.token)
       setInviteLink(link)
       setInviteExpiresAt(typeof payload.expiresAt === 'string' ? payload.expiresAt : null)
       try {
@@ -612,6 +689,12 @@ function App() {
       } catch {
         window.prompt('Copy this invite link', link)
       }
+    })
+
+    socket.on('invite:revoked', () => {
+      setInviteLink(null)
+      setInviteExpiresAt(null)
+      setToast('Invites revoked.')
     })
 
     socket.on('room:audit', (payload: { entries?: AuditEntry[] }) => {
@@ -655,7 +738,17 @@ function App() {
         return
       }
       if (notice.kind === 'info') {
-        setToast(notice.message)
+        const message = String(notice.message || '')
+        if (/invite link required/i.test(message)) {
+          setAccessBlock({ kind: 'invite', message })
+          setAccessInput('')
+          setAccessError(null)
+        } else if (/access token required|invalid access token/i.test(message)) {
+          setAccessBlock({ kind: 'auth', message })
+          setAccessInput('')
+          setAccessError(null)
+        }
+        setToast(message)
       }
     })
 
@@ -888,7 +981,13 @@ function App() {
 
   const handleCreateInvite = () => {
     if (!canCreateInvites) return
-    socketRef.current?.emit('invite:create', { ttlMs: 15 * 60 * 1000 })
+    const rotate = Boolean(inviteLink)
+    socketRef.current?.emit('invite:create', { ttlMs: inviteTtlMs, rotate })
+  }
+
+  const handleRevokeInvites = () => {
+    if (!canCreateInvites) return
+    socketRef.current?.emit('invite:revoke')
   }
 
   const handleCopyInviteLink = async () => {
@@ -956,7 +1055,19 @@ function App() {
   }
 
   const handleCopyLink = async () => {
-    const url = buildRoomUrl(window.location.href, roomId)
+    const inviteFromUrl = getInviteFromUrl(window.location.href)
+    const url = roomPrivate
+      ? inviteLink ??
+        (inviteFromUrl ? buildInviteUrl(window.location.href, roomId, inviteFromUrl) : null)
+      : buildRoomUrl(window.location.href, roomId)
+    if (!url) {
+      if (canCreateInvites) {
+        handleCreateInvite()
+      } else {
+        setToast('Invite-only room: ask a moderator for an invite link.')
+      }
+      return
+    }
     try {
       await navigator.clipboard.writeText(url)
       setCopyStatus('copied')
@@ -987,6 +1098,44 @@ function App() {
       url.searchParams.set('invite', invite)
     }
     window.location.assign(url.toString())
+  }
+
+  const handleAccessSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!accessBlock) return
+
+    if (accessBlock.kind === 'invite') {
+      const token = extractInviteToken(accessInput)
+      if (!token) {
+        setAccessError('Paste a valid invite link or token.')
+        return
+      }
+      setAccessError(null)
+      try {
+        const nextUrl = new URL(window.location.href)
+        nextUrl.searchParams.set('invite', token)
+        window.history.replaceState(null, '', nextUrl.toString())
+      } catch {
+        // ignore URL write failures
+      }
+      socket.auth = { ...(socket.auth as Record<string, unknown>), invite: token }
+      socket.connect()
+      setToast('Reconnecting...')
+      setAccessBlock(null)
+      return
+    }
+
+    const token = (accessInput || '').trim()
+    if (!token) {
+      setAccessError('Enter your access token.')
+      return
+    }
+    setAccessError(null)
+    saveLocalAuthToken(token)
+    socket.auth = { ...(socket.auth as Record<string, unknown>), authToken: token }
+    socket.connect()
+    setToast('Reconnecting...')
+    setAccessBlock(null)
   }
 
   const handleProfileCommit = () => {
@@ -1032,6 +1181,43 @@ function App() {
 
   return (
     <div className="app-shell">
+      {accessBlock ? (
+        <div
+          className="access-overlay"
+          onMouseDown={() => {
+            setAccessBlock(null)
+            setAccessError(null)
+          }}
+          role="presentation"
+        >
+          <div
+            className="access-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Access required"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2>Access required</h2>
+            <p className="muted">
+              {accessBlock.kind === 'invite'
+                ? 'This room is invite-only. Paste an invite link or token to join.'
+                : 'This server requires an access token. Paste it to connect.'}
+            </p>
+            <form onSubmit={handleAccessSubmit} className="access-form">
+              <input
+                value={accessInput}
+                onChange={(event) => setAccessInput(event.target.value)}
+                placeholder={accessBlock.kind === 'invite' ? 'Invite link or token' : 'Access token'}
+                aria-label={accessBlock.kind === 'invite' ? 'Invite link or token' : 'Access token'}
+                autoFocus
+              />
+              <button type="submit">Connect</button>
+            </form>
+            {accessError ? <p className="access-error">{accessError}</p> : null}
+            <p className="muted">{accessBlock.message}</p>
+          </div>
+        </div>
+      ) : null}
       <header className="top-bar">
         <div>
           <p className="brand">Sketchboard Chat</p>
@@ -1419,6 +1605,9 @@ function App() {
         onPrivacyToggle={handlePrivacyToggle}
         canCreateInvites={canCreateInvites}
         onCreateInvite={handleCreateInvite}
+        inviteTtlMs={inviteTtlMs}
+        onInviteTtlMs={(next) => setInviteTtlMs(next)}
+        onRevokeInvites={handleRevokeInvites}
         inviteLink={inviteLink}
         inviteExpiresAt={inviteExpiresAt}
         onCopyInviteLink={handleCopyInviteLink}

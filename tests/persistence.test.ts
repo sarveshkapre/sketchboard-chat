@@ -20,6 +20,7 @@ describe('persistence', () => {
       const room = {
         locked: true,
         private: true,
+        inviteVersion: 7,
         strokes: [{ id: 's1' }, { id: 's2' }, { id: 's3' }],
         messages: [
           { id: 'm1', text: 'one', createdAt: '2026-01-01T00:00:00.000Z', reactions: { '👍': ['u1'] } },
@@ -50,6 +51,7 @@ describe('persistence', () => {
       expect(loaded?.pinnedId).toBe('m2')
       expect(loaded?.locked).toBe(true)
       expect(loaded?.private).toBe(true)
+      expect(loaded?.inviteVersion).toBe(7)
       expect(loaded?.rolesByKey).toEqual([
         ['u1', 'owner'],
         ['u2', 'mod'],

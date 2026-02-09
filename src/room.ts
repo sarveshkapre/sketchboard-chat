@@ -59,3 +59,12 @@ export function buildViewUrl(currentUrl: string, roomId: string) {
   url.searchParams.set('mode', 'view')
   return url.toString()
 }
+
+export function buildInviteUrl(currentUrl: string, roomId: string, inviteToken: string) {
+  const url = new URL(buildRoomUrl(currentUrl, roomId))
+  const token = (inviteToken || '').trim()
+  if (token) {
+    url.searchParams.set('invite', token)
+  }
+  return url.toString()
+}

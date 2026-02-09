@@ -23,6 +23,11 @@ function formatAuditText({ kind, actorName, targetName, role }) {
     return `${actor} removed moderator role from ${target}.`
   }
   if (kind === 'owner') return `${target} is now the room owner.`
+  if (kind === 'invite') {
+    if (role === 'revoked') return `${actor} revoked invite links.`
+    if (role === 'regenerated') return `${actor} regenerated the invite link.`
+    return `${actor} created an invite link.`
+  }
   return `${actor} updated the room.`
 }
 

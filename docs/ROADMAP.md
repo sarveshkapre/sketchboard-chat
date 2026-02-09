@@ -1,11 +1,11 @@
 # ROADMAP
 
 ## Near-term
-- Optional lightweight auth guard for production deployments.
-- Invite UX: selectable invite TTL + regenerate/revoke flow.
 - Image import + stickers.
 
 ## Done
+- Optional lightweight auth guard for production deployments.
+- Invite UX: selectable invite TTL + regenerate/revoke flow.
 - Room settings drawer (lock, invite, roles).
 - Room-based sessions.
 - SVG export.
