@@ -7,11 +7,11 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] P2 UX: Persist user profile (name + color) locally and auto-apply it on connect (so refreshes don't randomize identity).
 - [ ] P2 Feature: Add limited-duration invite links with server-side validation for private room sharing.
 - [ ] P2 Security: Add optional lightweight auth guard for production deployments.
 
 ## Implemented
+- [x] (2026-02-09) P2 UX: Persisted user profile locally and auto-applied on connect. Evidence: `src/profileStorage.ts`, `src/App.tsx`, `tests/profileStorage.test.ts`.
 - [x] (2026-02-09) P1 Feature: Added dedicated room settings drawer consolidating join/share/moderation and reduced sidebar/toolbar clutter. Evidence: `src/App.tsx`, `src/App.css`.
 - [x] (2026-02-09) P1 Quality: Added socket integration tests for moderation flows (`room:lock`, `room:kick`, `role:set`). Evidence: `tests/socket-moderation.test.ts`, `server/index.mjs`.
 - [x] (2026-02-09) P1 DX: Added CI smoke step that boots the server and curls `/health`. Evidence: `.github/workflows/ci.yml`.

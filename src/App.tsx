@@ -13,6 +13,7 @@ import { strokesToSvg } from './svg'
 import { createId, formatTime } from './utils'
 import { fetchRoomsMetrics, kickUser, setRoomLock, type RoomMetrics } from './adminRooms'
 import { getUserKey } from './userKey'
+import { loadLocalProfile, saveLocalProfile } from './profileStorage'
 
 type Point = { x: number; y: number }
 
@@ -459,9 +460,23 @@ function App() {
       }
       const me = payload.users?.find?.((user: PresenceUser) => user.id === payload.selfId)
       if (me) {
-        setProfileName(me.name)
-        setProfileColor(me.color)
+        const saved = loadLocalProfile()
+        const canApplySaved =
+          !payload.locked && (payload.viewOnly === false || payload.viewOnly === undefined)
+        const nextName = canApplySaved && saved?.name ? saved.name : me.name
+        const nextColor = canApplySaved && saved?.color ? saved.color : me.color
+
+        setProfileName(nextName)
+        setProfileColor(nextColor)
         profileDirtyRef.current = false
+
+        if (canApplySaved && (nextName !== me.name || nextColor !== me.color)) {
+          socket.emit('profile:update', { name: nextName, color: nextColor })
+        }
+
+        if (nextName || nextColor) {
+          saveLocalProfile({ name: nextName, color: nextColor })
+        }
       }
       setMessages(payload.messages.slice(-LIMITS.maxMessages))
       strokesRef.current = payload.strokes.slice(-LIMITS.maxStrokes)
@@ -869,6 +884,7 @@ function App() {
       name: profileName,
       color: profileColor,
     })
+    saveLocalProfile({ name: profileName, color: profileColor })
   }
 
   const handleProfileColor = (nextColor: string) => {
@@ -878,6 +894,7 @@ function App() {
       name: profileName,
       color: nextColor,
     })
+    saveLocalProfile({ name: profileName, color: nextColor })
   }
 
   const handleSend = (event: React.FormEvent) => {
