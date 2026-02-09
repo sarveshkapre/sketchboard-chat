@@ -121,6 +121,215 @@ function drawAll(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   strokes.forEach((stroke) => drawStroke(ctx, stroke))
 }
 
+function RoomSettingsDrawer({
+  open,
+  onClose,
+  roomId,
+  roomInput,
+  onRoomInputChange,
+  onJoinRoom,
+  recentRooms,
+  onJoinRecentRoom,
+  copyStatus,
+  onCopyLink,
+  onCopyViewLink,
+  viewOnly,
+  onToggleMode,
+  roomLocked,
+  canModerate,
+  canManageRoles,
+  users,
+  selfId,
+  selfRole,
+  recentAudit,
+  onRoomLockToggle,
+  onRoleToggleUser,
+  onKickUser,
+}: {
+  open: boolean
+  onClose: () => void
+  roomId: string
+  roomInput: string
+  onRoomInputChange: (next: string) => void
+  onJoinRoom: (event: React.FormEvent) => void
+  recentRooms: string[]
+  onJoinRecentRoom: (roomId: string) => void
+  copyStatus: 'idle' | 'copied'
+  onCopyLink: () => void
+  onCopyViewLink: () => void
+  viewOnly: boolean
+  onToggleMode: () => void
+  roomLocked: boolean
+  canModerate: boolean
+  canManageRoles: boolean
+  users: PresenceUser[]
+  selfId: string
+  selfRole: PresenceUser['role'] | string
+  recentAudit: AuditEntry[]
+  onRoomLockToggle: () => void
+  onRoleToggleUser: (userId: string, role?: string) => void
+  onKickUser: (userId: string, userName: string) => void
+}) {
+  useEffect(() => {
+    if (!open) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div className="drawer-overlay" onMouseDown={onClose} role="presentation">
+      <div
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Room settings"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="drawer-header">
+          <div>
+            <p className="drawer-title">Room settings</p>
+            <p className="drawer-sub">
+              {roomId} · {viewOnly ? 'view' : 'edit'}
+              {roomLocked ? ' · locked' : ''}
+              {selfRole && selfRole !== 'member' ? ` · ${selfRole}` : ''}
+            </p>
+          </div>
+          <button type="button" className="drawer-close" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        <div className="drawer-body">
+          <div className="panel-block room">
+            <h3>Room</h3>
+            <form onSubmit={onJoinRoom}>
+              <input
+                value={roomInput}
+                onChange={(event) => onRoomInputChange(event.target.value)}
+                placeholder="e.g. team-1"
+                aria-label="Room id"
+              />
+              <button type="submit">Join</button>
+            </form>
+            {recentRooms.length > 0 ? (
+              <div className="recent-rooms" aria-label="Recent rooms">
+                {recentRooms.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={value === roomId ? 'recent active' : 'recent'}
+                    onClick={() => onJoinRecentRoom(value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="room-actions">
+              <button type="button" onClick={onCopyLink}>
+                {copyStatus === 'copied' ? 'Copied' : 'Copy link'}
+              </button>
+              <button type="button" onClick={onCopyViewLink}>
+                Copy view link
+              </button>
+              <p className="muted">Current: {roomId}</p>
+            </div>
+            <div className="room-actions">
+              <button type="button" onClick={onToggleMode}>
+                {viewOnly ? 'Switch to edit' : 'Switch to view'}
+              </button>
+              <p className="muted">{viewOnly ? 'Read-only mode' : 'Edit mode'}</p>
+            </div>
+          </div>
+
+          <div className="panel-block">
+            <h3>People</h3>
+            <ul>
+              {users.map((user) => (
+                <li key={user.id} className="drawer-user">
+                  <span className="avatar" style={{ background: user.color }} aria-hidden="true" />
+                  <div>
+                    <p>
+                      {user.name} {user.id === selfId ? <span className="muted">(you)</span> : null}
+                    </p>
+                    <p className="muted">
+                      {user.role && user.role !== 'member' ? user.role : 'member'}
+                    </p>
+                  </div>
+                  {canManageRoles && user.id !== selfId && user.role !== 'owner' ? (
+                    <button
+                      type="button"
+                      className="role-toggle"
+                      onClick={() => onRoleToggleUser(user.id, user.role)}
+                    >
+                      {user.role === 'mod' ? 'Remove mod' : 'Make mod'}
+                    </button>
+                  ) : null}
+                  {canModerate &&
+                  user.id !== selfId &&
+                  (selfRole === 'owner' || user.role !== 'owner') ? (
+                    <button
+                      type="button"
+                      className="kick"
+                      onClick={() => onKickUser(user.id, user.name)}
+                    >
+                      Kick
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            {canModerate ? (
+              <div className="drawer-moderation">
+                <button type="button" className="lock-toggle" onClick={onRoomLockToggle}>
+                  {roomLocked ? 'Unlock room' : 'Lock room'}
+                </button>
+                <p className="muted">
+                  Locking disables drawing and chat for everyone (moderators can still unlock).
+                </p>
+              </div>
+            ) : (
+              <p className="muted">Moderation controls are available to the owner/mods.</p>
+            )}
+          </div>
+
+          <div className="panel-block audit">
+            <h3>Room activity</h3>
+            {recentAudit.length === 0 ? (
+              <p className="muted">No moderation activity yet.</p>
+            ) : (
+              <ul className="audit-list">
+                {recentAudit.map((entry) => (
+                  <li key={entry.id} className="audit-item">
+                    <div>
+                      <p>{entry.text}</p>
+                      <p className="muted">{formatTime(entry.at)}</p>
+                    </div>
+                    {entry.kind ? <span className={`audit-kind ${entry.kind}`}>{entry.kind}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const initialRoomId = useMemo(() => getRoomIdFromUrl(window.location.href), [])
   const initialViewOnly = useMemo(() => isViewOnlyFromUrl(window.location.href), [])
@@ -169,6 +378,7 @@ function App() {
   const [roomsMetrics, setRoomsMetrics] = useState<RoomMetrics[]>([])
   const [roomsFilter, setRoomsFilter] = useState('')
   const [roomsAutoRefresh, setRoomsAutoRefresh] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const selfRole = useMemo(
     () => users.find((user) => user.id === selfId)?.role ?? 'member',
@@ -723,6 +933,11 @@ function App() {
               </div>
             ) : null}
             <div className="tool-group">
+              <button type="button" onClick={() => setSettingsOpen(true)}>
+                Room settings
+              </button>
+            </div>
+            <div className="tool-group">
               <button
                 className={tool === 'pen' ? 'active' : ''}
                 onClick={() => setTool('pen')}
@@ -772,11 +987,6 @@ function App() {
               <button onClick={handleClear} disabled={!canEdit}>
                 Clear
               </button>
-              {canModerate ? (
-                <button onClick={handleRoomLockToggle}>
-                  {roomLocked ? 'Unlock room' : 'Lock room'}
-                </button>
-              ) : null}
               <button onClick={handleExport}>Export PNG</button>
               <button onClick={handleExportSvg}>Export SVG</button>
             </div>
@@ -810,49 +1020,17 @@ function App() {
         </section>
 
         <aside className="side-panel">
-          <div className="panel-block room">
-            <h3>Room</h3>
-            <form onSubmit={handleJoinRoom}>
-              <input
-                value={roomInput}
-                onChange={(event) => setRoomInput(event.target.value)}
-                placeholder="e.g. team-1"
-                aria-label="Room id"
-              />
-              <button type="submit">Join</button>
-            </form>
-            {recentRooms.length > 0 ? (
-              <div className="recent-rooms" aria-label="Recent rooms">
-                {recentRooms.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={value === roomId ? 'recent active' : 'recent'}
-                    onClick={() => {
-                      const url = buildRoomUrl(window.location.href, value)
-                      window.location.assign(url)
-                    }}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            <div className="room-actions">
-              <button type="button" onClick={handleCopyLink}>
-                {copyStatus === 'copied' ? 'Copied' : 'Copy link'}
+          <div className="panel-block room-mini">
+            <div className="room-mini-header">
+              <h3>Room</h3>
+              <button type="button" className="room-mini-action" onClick={() => setSettingsOpen(true)}>
+                Settings
               </button>
-              <button type="button" onClick={handleCopyViewLink}>
-                Copy view link
-              </button>
-              <p className="muted">Current: {roomId}</p>
             </div>
-            <div className="room-actions">
-              <button type="button" onClick={handleToggleMode}>
-                {viewOnly ? 'Switch to edit' : 'Switch to view'}
-              </button>
-              <p className="muted">{viewOnly ? 'Read-only mode' : 'Edit mode'}</p>
-            </div>
+            <p className="room-mini-id">{roomId}</p>
+            <p className="muted">
+              {viewOnly ? 'View-only mode' : roomLocked ? 'Locked (no edits)' : 'Edit mode'}
+            </p>
           </div>
           <div className="panel-block profile">
             <h3>Profile</h3>
@@ -995,59 +1173,6 @@ function App() {
               </div>
             ) : null}
           </div>
-          <div className="panel-block">
-            <h3>Active crew</h3>
-            <ul>
-              {users.map((user) => (
-                <li key={user.id}>
-                  <span className="avatar" style={{ background: user.color }} />
-                  <div>
-                    <p>{user.name}</p>
-                    <p className="muted">
-                      {user.id === selfId ? 'You' : 'Guest'}
-                      {user.role && user.role !== 'member' ? ` · ${user.role}` : ''}
-                    </p>
-                  </div>
-                  {canManageRoles && user.id !== selfId && user.role !== 'owner' ? (
-                    <button
-                      type="button"
-                      className="role-toggle"
-                      onClick={() => handleRoleToggleUser(user.id, user.role)}
-                    >
-                      {user.role === 'mod' ? 'Remove mod' : 'Make mod'}
-                    </button>
-                  ) : null}
-                  {canModerate && user.id !== selfId && (selfRole === 'owner' || user.role !== 'owner') ? (
-                    <button
-                      type="button"
-                      className="kick"
-                      onClick={() => handleKickUser(user.id, user.name)}
-                    >
-                      Kick
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="panel-block audit">
-            <h3>Room activity</h3>
-            {recentAudit.length === 0 ? (
-              <p className="muted">No moderation activity yet.</p>
-            ) : (
-              <ul className="audit-list">
-                {recentAudit.map((entry) => (
-                  <li key={entry.id} className="audit-item">
-                    <div>
-                      <p>{entry.text}</p>
-                      <p className="muted">{formatTime(entry.at)}</p>
-                    </div>
-                    {entry.kind ? <span className={`audit-kind ${entry.kind}`}>{entry.kind}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
           <div className="panel-block chat">
             <h3>Chat</h3>
             {pinnedMessage ? (
@@ -1132,6 +1257,37 @@ function App() {
           </div>
         </aside>
       </div>
+
+      <RoomSettingsDrawer
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        roomId={roomId}
+        roomInput={roomInput}
+        onRoomInputChange={(next) => setRoomInput(next)}
+        onJoinRoom={handleJoinRoom}
+        recentRooms={recentRooms}
+        onJoinRecentRoom={(value) => {
+          const url = viewOnly
+            ? buildViewUrl(window.location.href, value)
+            : buildRoomUrl(window.location.href, value)
+          window.location.assign(url)
+        }}
+        copyStatus={copyStatus}
+        onCopyLink={handleCopyLink}
+        onCopyViewLink={handleCopyViewLink}
+        viewOnly={viewOnly}
+        onToggleMode={handleToggleMode}
+        roomLocked={roomLocked}
+        canModerate={canModerate}
+        canManageRoles={canManageRoles}
+        users={users}
+        selfId={selfId}
+        selfRole={selfRole}
+        recentAudit={recentAudit}
+        onRoomLockToggle={handleRoomLockToggle}
+        onRoleToggleUser={handleRoleToggleUser}
+        onKickUser={handleKickUser}
+      />
     </div>
   )
 }
