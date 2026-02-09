@@ -11,6 +11,7 @@ Realtime sketching board with multiplayer presence and chat. Draw together, see 
 - User profiles (display name + color)
 - Room roles (owner/mod) with in-room moderation
 - Room activity log for moderation changes
+- Optional invite-only rooms with expiring invite links
 - Chat reactions and pinned messages
 - Export to PNG and SVG
 
@@ -30,6 +31,7 @@ View-only example: `http://localhost:5173/r/team-1?mode=view`
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod, e.g. `https://example.com,https://www.example.com`)
 - `ADMIN_TOKEN` (server): optional bearer token for admin endpoints (e.g. `/api/rooms`)
+- `INVITE_SECRET` (server): optional secret used to sign invite links (enables invite-only rooms)
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
 - `PERSIST_DIR` (server): persistence directory (default `./data`)
 - `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)

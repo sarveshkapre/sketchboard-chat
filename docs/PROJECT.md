@@ -15,11 +15,13 @@ View-only mode: append `?mode=view` (disables drawing + chat).
 The first non-view-only user becomes room owner and can promote moderators.
 Moderation actions (lock, kick, role changes) appear in the room activity log.
 Chat supports emoji reactions and a single pinned message per room.
+Rooms can optionally be made invite-only (requires `INVITE_SECRET`); moderators can create expiring invite links.
 
 ## Environment
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod)
 - `ADMIN_TOKEN` (server): optional bearer token for admin endpoints (e.g. `/api/rooms`)
+- `INVITE_SECRET` (server): optional secret used to sign invite links (enables invite-only rooms)
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
 - `PERSIST_DIR` (server): persistence directory (default `./data`)
 - `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)
@@ -28,6 +30,6 @@ Chat supports emoji reactions and a single pinned message per room.
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Add room settings drawer (lock, invite, role controls in one place).
-2. Add basic auth (optional, lightweight).
-3. Add room invite links (limited duration).
+1. Add basic auth (optional, lightweight) for production deployments.
+2. Invite UX: selectable invite TTL + regenerate/revoke flow.
+3. Image import + stickers.

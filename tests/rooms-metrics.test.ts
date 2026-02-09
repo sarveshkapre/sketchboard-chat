@@ -9,8 +9,8 @@ describe('rooms metrics', () => {
     rooms.set('a', { users: new Map(), strokes: [], messages: [{}, {}, {}], locked: false })
 
     expect(snapshotRooms(rooms)).toEqual([
-      { roomId: 'b', usersCount: 1, strokesCount: 2, messagesCount: 0, locked: true },
-      { roomId: 'a', usersCount: 0, strokesCount: 0, messagesCount: 3, locked: false },
+      { roomId: 'b', usersCount: 1, strokesCount: 2, messagesCount: 0, locked: true, private: false },
+      { roomId: 'a', usersCount: 0, strokesCount: 0, messagesCount: 3, locked: false, private: false },
     ])
   })
 
@@ -32,6 +32,7 @@ describe('rooms metrics', () => {
         strokesCount: 0,
         messagesCount: 0,
         locked: false,
+        private: false,
         users: [
           { id: 'u2', name: 'A', color: '#222', role: 'owner' },
           { id: 'u1', name: 'B', color: '#111', role: 'mod' },

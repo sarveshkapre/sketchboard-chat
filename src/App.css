@@ -131,6 +131,11 @@ body {
   color: #ffb3b3;
 }
 
+.mode-pill.privacy {
+  border-color: rgba(241, 91, 181, 0.55);
+  color: #ffbde3;
+}
+
 .tool-group {
   display: flex;
   gap: 8px;
@@ -582,6 +587,11 @@ canvas {
   color: #d0ffd9;
 }
 
+.audit-kind.privacy {
+  background: rgba(241, 91, 181, 0.2);
+  color: #ffbde3;
+}
+
 .avatar {
   width: 36px;
   height: 36px;
@@ -861,6 +871,25 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.drawer-invites {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(45, 45, 76, 0.8);
+}
+
+.invite-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.invite-preview .muted {
+  margin: 0;
 }
 
 @media (max-width: 1024px) {

@@ -31,7 +31,7 @@ export function verifyInviteToken({ token, roomId, secret, nowMs = Date.now() })
   if (!secret) return { ok: false, reason: 'disabled' }
 
   const trimmed = token.trim()
-  const match = trimmed.match(/^([A-Za-z0-9_-]+)\\.([A-Za-z0-9_-]+)$/)
+  const match = trimmed.match(/^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/)
   if (!match) return { ok: false, reason: 'format' }
   const encoded = match[1]
   const providedSig = match[2]
@@ -52,4 +52,3 @@ export function verifyInviteToken({ token, roomId, secret, nowMs = Date.now() })
 
   return { ok: true, exp: parsed.exp }
 }
-

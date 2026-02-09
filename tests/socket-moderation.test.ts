@@ -72,23 +72,57 @@ async function connectClient({
   room,
   userKey,
   mode = 'edit',
+  invite,
 }: {
   port: number
   room: string
   userKey: string
   mode?: 'edit' | 'view'
+  invite?: string
 }): Promise<{ socket: Socket; init: InitPayload }> {
   const socket = clientIo(`http://localhost:${port}`, {
     transports: ['websocket'],
     forceNew: true,
     reconnection: false,
-    auth: { room, mode, userKey },
+    auth: { room, mode, userKey, invite },
   })
 
   const initRaw = await waitForEvent<unknown>(socket, 'init', 5000)
   assertInitPayload(initRaw)
   const init = initRaw
   return { socket, init }
+}
+
+async function connectExpectReject({
+  port,
+  room,
+  userKey,
+  mode = 'edit',
+  invite,
+}: {
+  port: number
+  room: string
+  userKey: string
+  mode?: 'edit' | 'view'
+  invite?: string
+}): Promise<{ socket: Socket; notice: Notice }> {
+  const socket = clientIo(`http://localhost:${port}`, {
+    transports: ['websocket'],
+    forceNew: true,
+    reconnection: false,
+    auth: { room, mode, userKey, invite },
+  })
+
+  const notice = await waitForEvent<Notice>(socket, 'notice', 5000)
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Timed out waiting for disconnect')), 5000)
+    socket.once('disconnect', () => {
+      clearTimeout(timeout)
+      resolve()
+    })
+  })
+
+  return { socket, notice }
 }
 
 function shutdownSocket(socket: Socket | null) {
@@ -103,7 +137,7 @@ describe('socket moderation flows', () => {
   beforeAll(async () => {
     const serverPath = path.resolve(process.cwd(), 'server/index.mjs')
     child = spawn(process.execPath, [serverPath], {
-      env: { ...process.env, PORT: '0' },
+      env: { ...process.env, PORT: '0', INVITE_SECRET: 'test-secret' },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
@@ -228,4 +262,37 @@ describe('socket moderation flows', () => {
     shutdownSocket(member.socket)
     shutdownSocket(owner.socket)
   })
+
+  it('invite-only rooms require an invite link for non-mods', async () => {
+    const room = `room-private-${Date.now()}`
+    const owner = await connectClient({ port, room, userKey: 'owner-private' })
+
+    owner.socket.emit('room:privacy', { private: true })
+    const privacy = await waitForEvent<{ private?: boolean }>(owner.socket, 'room:privacy', 5000)
+    expect(privacy.private).toBe(true)
+
+    owner.socket.emit('invite:create', { ttlMs: 60_000 })
+    const invite = await waitForEvent<{ token?: string; expiresAt?: string }>(
+      owner.socket,
+      'invite:created',
+      5000,
+    )
+    expect(typeof invite.token).toBe('string')
+
+    const rejected = await connectExpectReject({ port, room, userKey: 'member-no-invite' })
+    expect(rejected.notice.kind).toBe('info')
+    expect(String(rejected.notice.message)).toMatch(/invite/i)
+
+    const member = await connectClient({
+      port,
+      room,
+      userKey: 'member-with-invite',
+      invite: invite.token,
+    })
+    expect(member.init.locked).toBe(false)
+
+    shutdownSocket(member.socket)
+    shutdownSocket(rejected.socket)
+    shutdownSocket(owner.socket)
+  }, 15_000)
 })

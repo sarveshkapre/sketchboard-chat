@@ -397,7 +397,7 @@ io.on('connection', async (socket) => {
       const verified = verifyInviteToken({ token: inviteToken, roomId, secret })
       if (!verified.ok) {
         socket.emit('notice', { kind: 'info', message: 'Invite link required for this room.' })
-        socket.disconnect(true)
+        setTimeout(() => socket.disconnect(true), 30)
         return
       }
     }

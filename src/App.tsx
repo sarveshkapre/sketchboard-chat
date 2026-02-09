@@ -138,6 +138,14 @@ function RoomSettingsDrawer({
   viewOnly,
   onToggleMode,
   roomLocked,
+  roomPrivate,
+  canTogglePrivacy,
+  onPrivacyToggle,
+  canCreateInvites,
+  onCreateInvite,
+  inviteLink,
+  inviteExpiresAt,
+  onCopyInviteLink,
   canModerate,
   canManageRoles,
   users,
@@ -162,6 +170,14 @@ function RoomSettingsDrawer({
   viewOnly: boolean
   onToggleMode: () => void
   roomLocked: boolean
+  roomPrivate: boolean
+  canTogglePrivacy: boolean
+  onPrivacyToggle: () => void
+  canCreateInvites: boolean
+  onCreateInvite: () => void
+  inviteLink: string | null
+  inviteExpiresAt: string | null
+  onCopyInviteLink: () => void
   canModerate: boolean
   canManageRoles: boolean
   users: PresenceUser[]
@@ -206,6 +222,7 @@ function RoomSettingsDrawer({
             <p className="drawer-sub">
               {roomId} · {viewOnly ? 'view' : 'edit'}
               {roomLocked ? ' · locked' : ''}
+              {roomPrivate ? ' · invite-only' : ''}
               {selfRole && selfRole !== 'member' ? ` · ${selfRole}` : ''}
             </p>
           </div>
@@ -254,6 +271,36 @@ function RoomSettingsDrawer({
                 {viewOnly ? 'Switch to edit' : 'Switch to view'}
               </button>
               <p className="muted">{viewOnly ? 'Read-only mode' : 'Edit mode'}</p>
+            </div>
+            <div className="drawer-invites">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={roomPrivate}
+                  onChange={onPrivacyToggle}
+                  disabled={!canTogglePrivacy}
+                />
+                Invite-only
+              </label>
+              <button
+                type="button"
+                className="lock-toggle"
+                onClick={onCreateInvite}
+                disabled={!canCreateInvites || !roomPrivate}
+              >
+                Create invite link (15m)
+              </button>
+              {inviteLink ? (
+                <div className="invite-preview">
+                  <p className="muted">
+                    Last invite {inviteExpiresAt ? `expires at ${formatTime(inviteExpiresAt)}` : 'created'}
+                  </p>
+                  <button type="button" className="room-mini-action" onClick={onCopyInviteLink}>
+                    Copy last invite
+                  </button>
+                </div>
+              ) : null}
+              <p className="muted">Invite-only rooms require a valid invite link to join.</p>
             </div>
           </div>
 
@@ -544,6 +591,29 @@ function App() {
       }
     })
 
+    socket.on('room:privacy', (payload: { private?: boolean }) => {
+      if (typeof payload?.private === 'boolean') {
+        setRoomPrivate(payload.private)
+        setToast(payload.private ? 'Room is invite-only.' : 'Room is public.')
+      }
+    })
+
+    socket.on('invite:created', async (payload: { token?: string; expiresAt?: string }) => {
+      if (!payload?.token) return
+      const currentRoom = getRoomIdFromUrl(window.location.href)
+      const url = new URL(buildRoomUrl(window.location.href, currentRoom))
+      url.searchParams.set('invite', payload.token)
+      const link = url.toString()
+      setInviteLink(link)
+      setInviteExpiresAt(typeof payload.expiresAt === 'string' ? payload.expiresAt : null)
+      try {
+        await navigator.clipboard.writeText(link)
+        setToast('Invite link copied.')
+      } catch {
+        window.prompt('Copy this invite link', link)
+      }
+    })
+
     socket.on('room:audit', (payload: { entries?: AuditEntry[] }) => {
       if (Array.isArray(payload?.entries)) {
         setAuditEntries(payload.entries)
@@ -808,6 +878,29 @@ function App() {
     socketRef.current?.emit(roomLocked ? 'room:unlock' : 'room:lock')
   }
 
+  const canTogglePrivacy = !viewOnly && selfRole === 'owner'
+  const canCreateInvites = !viewOnly && canModerate
+
+  const handlePrivacyToggle = () => {
+    if (!canTogglePrivacy) return
+    socketRef.current?.emit('room:privacy', { private: !roomPrivate })
+  }
+
+  const handleCreateInvite = () => {
+    if (!canCreateInvites) return
+    socketRef.current?.emit('invite:create', { ttlMs: 15 * 60 * 1000 })
+  }
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteLink) return
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      setToast('Invite link copied.')
+    } catch {
+      window.prompt('Copy this invite link', inviteLink)
+    }
+  }
+
   const handleKickUser = (userId: string, userName: string) => {
     if (!canModerate) return
     if (userId === selfId) return
@@ -884,10 +977,16 @@ function App() {
   }
 
   const handleToggleMode = () => {
-    const url = viewOnly
+    const current = new URL(window.location.href)
+    const invite = current.searchParams.get('invite')
+    const base = viewOnly
       ? buildRoomUrl(window.location.href, roomId)
       : buildViewUrl(window.location.href, roomId)
-    window.location.assign(url)
+    const url = new URL(base)
+    if (invite) {
+      url.searchParams.set('invite', invite)
+    }
+    window.location.assign(url.toString())
   }
 
   const handleProfileCommit = () => {
@@ -960,6 +1059,11 @@ function App() {
             {roomLocked ? (
               <div className="mode-pill warning" aria-label="Room locked">
                 Locked
+              </div>
+            ) : null}
+            {roomPrivate ? (
+              <div className="mode-pill privacy" aria-label="Invite-only room">
+                Invite-only
               </div>
             ) : null}
             <div className="tool-group">
@@ -1060,6 +1164,7 @@ function App() {
             <p className="room-mini-id">{roomId}</p>
             <p className="muted">
               {viewOnly ? 'View-only mode' : roomLocked ? 'Locked (no edits)' : 'Edit mode'}
+              {roomPrivate ? ' · Invite-only' : ''}
             </p>
           </div>
           <div className="panel-block profile">
@@ -1153,10 +1258,11 @@ function App() {
                           {room.usersCount} users · {room.strokesCount} strokes ·{' '}
                           {room.messagesCount} msgs
                         </span>
-                        <span className="room-meta">
-                          {room.locked ? 'Locked' : 'Unlocked'}
-                        </span>
-                      </button>
+	                        <span className="room-meta">
+	                          {room.locked ? 'Locked' : 'Unlocked'}
+	                          {room.private ? ' · Invite-only' : ''}
+	                        </span>
+	                      </button>
                       {adminToken.trim() ? (
                         <div className="room-admin-actions">
                           <button
@@ -1308,6 +1414,14 @@ function App() {
         viewOnly={viewOnly}
         onToggleMode={handleToggleMode}
         roomLocked={roomLocked}
+        roomPrivate={roomPrivate}
+        canTogglePrivacy={canTogglePrivacy}
+        onPrivacyToggle={handlePrivacyToggle}
+        canCreateInvites={canCreateInvites}
+        onCreateInvite={handleCreateInvite}
+        inviteLink={inviteLink}
+        inviteExpiresAt={inviteExpiresAt}
+        onCopyInviteLink={handleCopyInviteLink}
         canModerate={canModerate}
         canManageRoles={canManageRoles}
         users={users}
