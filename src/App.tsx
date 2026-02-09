@@ -461,6 +461,9 @@ function App() {
       if (typeof payload.locked === 'boolean') {
         setRoomLocked(payload.locked)
       }
+      if (typeof payload.private === 'boolean') {
+        setRoomPrivate(payload.private)
+      }
       setUsers(payload.users)
       if (Array.isArray(payload.audit)) {
         setAuditEntries(payload.audit)
