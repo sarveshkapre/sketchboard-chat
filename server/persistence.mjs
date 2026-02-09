@@ -135,6 +135,8 @@ export function createRoomPersistence(options) {
     const parsed = safeJsonParse(raw)
     if (!parsed || typeof parsed !== 'object') return null
 
+    const locked = parsed.locked === true
+    const isPrivate = parsed.private === true
     const strokes = asArray(parsed.strokes).slice(-limits.maxStrokes)
     const messages = asArray(parsed.messages)
       .map(normalizeMessage)
@@ -156,7 +158,7 @@ export function createRoomPersistence(options) {
       pinnedId = null
     }
 
-    return { strokes, messages, audit, rolesByKey, ownerKey, pinnedId }
+    return { strokes, messages, audit, rolesByKey, ownerKey, pinnedId, locked, private: isPrivate }
   }
 
   async function saveNow(roomId, room) {
@@ -168,6 +170,8 @@ export function createRoomPersistence(options) {
     const snapshot = {
       version: 1,
       savedAt: new Date().toISOString(),
+      locked: room?.locked === true,
+      private: room?.private === true,
       strokes: asArray(room?.strokes).slice(-limits.maxStrokes),
       messages: asArray(room?.messages)
         .map(normalizeMessage)

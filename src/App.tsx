@@ -4,6 +4,7 @@ import './App.css'
 import {
   buildRoomUrl,
   buildViewUrl,
+  getInviteFromUrl,
   getRoomIdFromUrl,
   isViewOnlyFromUrl,
   normalizeRoomId,
@@ -43,7 +44,7 @@ type AuditEntry = {
   id: string
   at: string
   text: string
-  kind?: 'lock' | 'unlock' | 'kick' | 'role' | 'owner'
+  kind?: 'lock' | 'unlock' | 'kick' | 'role' | 'owner' | 'privacy'
 }
 
 type PresenceUser = {
@@ -334,6 +335,7 @@ function RoomSettingsDrawer({
 function App() {
   const initialRoomId = useMemo(() => getRoomIdFromUrl(window.location.href), [])
   const initialViewOnly = useMemo(() => isViewOnlyFromUrl(window.location.href), [])
+  const initialInvite = useMemo(() => getInviteFromUrl(window.location.href), [])
   const userKey = useMemo(() => getUserKey(), [])
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -357,10 +359,13 @@ function App() {
   const [roomId, setRoomId] = useState(initialRoomId)
   const [viewOnly, setViewOnly] = useState(initialViewOnly)
   const [roomLocked, setRoomLocked] = useState(false)
+  const [roomPrivate, setRoomPrivate] = useState(false)
   const [users, setUsers] = useState<PresenceUser[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
   const [pinnedId, setPinnedId] = useState<string | null>(null)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null)
   const [color, setColor] = useState(COLORS[0])
   const [size, setSize] = useState(SIZES[1])
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
@@ -397,9 +402,14 @@ function App() {
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
       autoConnect: true,
-      auth: { room: initialRoomId, mode: initialViewOnly ? 'view' : 'edit', userKey },
+      auth: {
+        room: initialRoomId,
+        mode: initialViewOnly ? 'view' : 'edit',
+        userKey,
+        invite: initialInvite ?? undefined,
+      },
     })
-  }, [initialRoomId, initialViewOnly, userKey])
+  }, [initialRoomId, initialViewOnly, initialInvite, userKey])
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current

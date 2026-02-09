@@ -31,10 +31,20 @@ export function isViewOnlyFromUrl(url: string) {
   return mode === 'view' || mode === 'readonly' || mode === 'read'
 }
 
+export function getInviteFromUrl(url: string) {
+  const parsed = new URL(url)
+  const invite = (parsed.searchParams.get('invite') || '').trim()
+  if (!invite) return null
+  if (invite.length > 1024) return null
+  return invite
+}
+
 export function buildRoomUrl(currentUrl: string, roomId: string) {
   const parsed = new URL(currentUrl)
   const normalized = normalizeRoomId(roomId)
   parsed.searchParams.delete('room')
+  parsed.searchParams.delete('mode')
+  parsed.searchParams.delete('invite')
 
   if (normalized === DEFAULT_ROOM_ID) {
     parsed.pathname = '/'

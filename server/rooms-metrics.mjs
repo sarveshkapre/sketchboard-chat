@@ -20,6 +20,7 @@ export function snapshotRooms(rooms, options) {
       strokesCount,
       messagesCount,
       locked: Boolean(room?.locked),
+      private: Boolean(room?.private),
     }
     if (includeUsers) {
       const users = Array.from(room?.users?.values?.() ?? [], toBasicUser).filter(

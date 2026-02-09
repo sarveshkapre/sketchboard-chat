@@ -4,6 +4,7 @@ export type RoomMetrics = {
   strokesCount: number
   messagesCount: number
   locked?: boolean
+  private?: boolean
   users?: { id: string; name: string; color: string; role?: string }[]
 }
 

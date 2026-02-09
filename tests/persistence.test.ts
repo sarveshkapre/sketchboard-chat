@@ -18,6 +18,8 @@ describe('persistence', () => {
       })
 
       const room = {
+        locked: true,
+        private: true,
         strokes: [{ id: 's1' }, { id: 's2' }, { id: 's3' }],
         messages: [
           { id: 'm1', text: 'one', createdAt: '2026-01-01T00:00:00.000Z', reactions: { '👍': ['u1'] } },
@@ -46,6 +48,8 @@ describe('persistence', () => {
       expect(loaded?.audit?.map((entry) => entry.id)).toEqual(['a2', 'a3'])
       expect(loaded?.ownerKey).toBe('u1')
       expect(loaded?.pinnedId).toBe('m2')
+      expect(loaded?.locked).toBe(true)
+      expect(loaded?.private).toBe(true)
       expect(loaded?.rolesByKey).toEqual([
         ['u1', 'owner'],
         ['u2', 'mod'],

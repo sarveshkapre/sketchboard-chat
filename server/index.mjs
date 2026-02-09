@@ -31,6 +31,7 @@ import {
   setRole,
 } from './roles.mjs'
 import { clearRedoStack, redoLastStroke, undoLastStroke } from './stroke-history.mjs'
+import { createInviteToken, verifyInviteToken } from './invite.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -115,6 +116,7 @@ function createRoomState() {
     users: new Map(),
     redoByUser: new Map(),
     locked: false,
+    private: false,
     rolesByKey: new Map(),
     ownerKey: null,
     hydrated: false,
@@ -150,6 +152,12 @@ function getRoom(roomId) {
           }
           if (typeof loaded.pinnedId === 'string') {
             created.pinnedId = loaded.pinnedId
+          }
+          if (typeof loaded.locked === 'boolean') {
+            created.locked = loaded.locked
+          }
+          if (typeof loaded.private === 'boolean') {
+            created.private = loaded.private
           }
         }
       })
@@ -212,6 +220,20 @@ function isAuthorizedAdmin(req) {
   const header = req.header('authorization') || ''
   const value = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
   return { enabled: true, authorized: value === token }
+}
+
+function getInviteSecret() {
+  const secret = process.env.INVITE_SECRET
+  return typeof secret === 'string' && secret.trim() ? secret.trim() : null
+}
+
+function sanitizeInviteToken(value) {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (trimmed.length > 1024) return ''
+  if (!/^[A-Za-z0-9_.-]+$/.test(trimmed)) return ''
+  return trimmed
 }
 
 app.get('/api/rooms', (req, res) => {
@@ -348,13 +370,10 @@ io.on('connection', async (socket) => {
   const rawUserKey =
     socket.handshake.auth?.userKey ??
     (typeof socket.handshake.query?.userKey === 'string' ? socket.handshake.query.userKey : '')
+  const rawInvite =
+    socket.handshake.auth?.invite ??
+    (typeof socket.handshake.query?.invite === 'string' ? socket.handshake.query.invite : '')
   const roomId = sanitizeRoomId(rawRoom)
-  const room = getRoom(roomId)
-  if (room.hydratePromise) {
-    await room.hydratePromise.catch(() => {})
-  }
-  socket.join(roomId)
-
   const sanitizedUserKey =
     typeof rawUserKey === 'string'
       ? rawUserKey.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
@@ -363,6 +382,28 @@ io.on('connection', async (socket) => {
 
   const isViewOnly =
     socket.handshake.auth?.mode === 'view' || socket.handshake.query?.mode === 'view'
+
+  const room = getRoom(roomId)
+  if (room.hydratePromise) {
+    await room.hydratePromise.catch(() => {})
+  }
+
+  const inviteToken = sanitizeInviteToken(rawInvite)
+  if (room.private) {
+    const role = getRole(room, userKey)
+    const canBypassInvite = role === ROLE_OWNER || role === ROLE_MOD
+    if (!canBypassInvite) {
+      const secret = getInviteSecret()
+      const verified = verifyInviteToken({ token: inviteToken, roomId, secret })
+      if (!verified.ok) {
+        socket.emit('notice', { kind: 'info', message: 'Invite link required for this room.' })
+        socket.disconnect(true)
+        return
+      }
+    }
+  }
+
+  socket.join(roomId)
 
   const user = {
     id: socket.id,
@@ -401,6 +442,7 @@ io.on('connection', async (socket) => {
     selfId: socket.id,
     viewOnly: isViewOnly,
     locked: room.locked,
+    private: room.private,
   })
 
   broadcastPresence(roomId, room)
@@ -485,6 +527,55 @@ io.on('connection', async (socket) => {
     room.locked = false
     io.to(roomId).emit('room:lock', { locked: false })
     addAudit(roomId, room, createAuditEntry({ kind: 'unlock', actor: user }))
+  })
+
+  socket.on('room:privacy', (payload) => {
+    if (isViewOnly) return
+    const role = getRole(room, userKey)
+    if (role !== ROLE_OWNER) {
+      socket.emit('notice', { kind: 'info', message: 'Only the owner can change room privacy.' })
+      return
+    }
+    const nextPrivate = payload?.private === true
+    if (nextPrivate && !getInviteSecret()) {
+      socket.emit('notice', {
+        kind: 'info',
+        message: 'Invite links are disabled on this server (set INVITE_SECRET).',
+      })
+      return
+    }
+    room.private = nextPrivate
+    io.to(roomId).emit('room:privacy', { private: nextPrivate })
+    addAudit(
+      roomId,
+      room,
+      createAuditEntry({ kind: 'privacy', actor: user, role: nextPrivate ? 'private' : 'public' }),
+    )
+  })
+
+  socket.on('invite:create', (payload) => {
+    const role = getRole(room, userKey)
+    if (!canModerate(role)) {
+      socket.emit('notice', { kind: 'info', message: 'Only moderators can create invite links.' })
+      return
+    }
+    if (!room.private) {
+      socket.emit('notice', { kind: 'info', message: 'Enable invite-only mode before creating invites.' })
+      return
+    }
+    const secret = getInviteSecret()
+    if (!secret) {
+      socket.emit('notice', { kind: 'info', message: 'Invite links are disabled on this server.' })
+      return
+    }
+
+    const ttlMsRaw = payload?.ttlMs
+    const ttlMs = Number.isFinite(ttlMsRaw) ? Math.floor(ttlMsRaw) : 15 * 60 * 1000
+    const clamped = Math.max(60_000, Math.min(24 * 60 * 60 * 1000, ttlMs))
+    const expMs = Date.now() + clamped
+    const token = createInviteToken({ roomId, expiresAtMs: expMs, secret })
+    if (!token) return
+    socket.emit('invite:created', { token, expiresAt: new Date(expMs).toISOString() })
   })
 
   socket.on('room:kick', (payload) => {

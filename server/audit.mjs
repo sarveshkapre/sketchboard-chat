@@ -13,6 +13,10 @@ function formatAuditText({ kind, actorName, targetName, role }) {
 
   if (kind === 'lock') return `${actor} locked the room.`
   if (kind === 'unlock') return `${actor} unlocked the room.`
+  if (kind === 'privacy') {
+    if (role === 'private') return `${actor} made the room invite-only.`
+    return `${actor} made the room public.`
+  }
   if (kind === 'kick') return `${actor} removed ${target} from the room.`
   if (kind === 'role') {
     if (role === 'mod') return `${actor} made ${target} a moderator.`
