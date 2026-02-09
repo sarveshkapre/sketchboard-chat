@@ -48,6 +48,22 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 4000
 
 const rooms = new Map()
 
+function parseMsEnv(name, fallbackMs, options) {
+  const raw = process.env[name]
+  if (typeof raw !== 'string' || !raw.trim()) return fallbackMs
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) return fallbackMs
+  const min = Number.isFinite(options?.min) ? options.min : null
+  const max = Number.isFinite(options?.max) ? options.max : null
+  let next = Math.floor(parsed)
+  if (min !== null) next = Math.max(min, next)
+  if (max !== null) next = Math.min(max, next)
+  return next
+}
+
+const ROOM_IDLE_TTL_MS = parseMsEnv('ROOM_IDLE_TTL_MS', 15 * 60 * 1000, { min: 0, max: 24 * 60 * 60 * 1000 })
+const ROOM_GC_INTERVAL_MS = parseMsEnv('ROOM_GC_INTERVAL_MS', 30_000, { min: 1000, max: 5 * 60 * 1000 })
+
 const LIMITS = {
   maxStrokePoints: 2000,
   maxMessageLength: 400,
@@ -73,6 +89,35 @@ const persistence = createRoomPersistence({
     maxAudit: MAX_AUDIT_EVENTS,
   },
 })
+
+const RETAIN_EMPTY_ROOMS = !persistence.enabled && ROOM_IDLE_TTL_MS > 0
+
+function sweepIdleRooms() {
+  if (!RETAIN_EMPTY_ROOMS) return
+  const now = Date.now()
+  for (const [roomId, room] of rooms.entries()) {
+    if (!room) continue
+    if (room?.users?.size > 0) continue
+    const emptySinceMs =
+      typeof room.emptySinceMs === 'number' && Number.isFinite(room.emptySinceMs)
+        ? room.emptySinceMs
+        : null
+    if (emptySinceMs === null) continue
+    if (now - emptySinceMs < ROOM_IDLE_TTL_MS) continue
+    rooms.delete(roomId)
+  }
+}
+
+if (RETAIN_EMPTY_ROOMS) {
+  const timer = setInterval(() => {
+    try {
+      sweepIdleRooms()
+    } catch {
+      // best-effort; never crash the server from GC.
+    }
+  }, ROOM_GC_INTERVAL_MS)
+  timer.unref?.()
+}
 
 const CURSOR_BROADCAST_MIN_INTERVAL_MS = 33
 const RATE_LIMITS = {
@@ -122,6 +167,7 @@ function createRoomState() {
     ownerKey: null,
     hydrated: false,
     hydratePromise: null,
+    emptySinceMs: null,
   }
 }
 
@@ -414,6 +460,7 @@ io.on('connection', async (socket) => {
     socket.handshake.auth?.mode === 'view' || socket.handshake.query?.mode === 'view'
 
   const room = getRoom(roomId)
+  room.emptySinceMs = null
   if (room.hydratePromise) {
     await room.hydratePromise.catch(() => {})
   }
@@ -939,9 +986,16 @@ io.on('connection', async (socket) => {
     recordOwnerChange(roomId, room, previousOwnerKey)
     broadcastPresence(roomId, room)
     if (room.users.size === 0) {
-      void persistence.flush(roomId, room).catch(() => {})
-      rooms.delete(roomId)
-      return
+      if (persistence.enabled) {
+        void persistence.flush(roomId, room).catch(() => {})
+        rooms.delete(roomId)
+        return
+      }
+      if (ROOM_IDLE_TTL_MS <= 0) {
+        rooms.delete(roomId)
+        return
+      }
+      room.emptySinceMs = Date.now()
     }
     persistence.scheduleSave(roomId, room)
   })

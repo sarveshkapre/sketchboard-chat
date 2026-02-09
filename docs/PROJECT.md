@@ -27,6 +27,8 @@ Rooms can optionally be made invite-only (requires `INVITE_SECRET`); moderators 
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
 - `PERSIST_DIR` (server): persistence directory (default `./data`)
 - `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)
+- `ROOM_IDLE_TTL_MS` (server): how long to keep an empty room in memory before eviction when `PERSIST` is off (default `900000` = 15 minutes)
+- `ROOM_GC_INTERVAL_MS` (server): how often to sweep and evict idle rooms (default `30000` = 30 seconds)
 - `PERSIST_MAX_ROOMS` (server): optional cap on number of room files kept
 - `PERSIST_TTL_DAYS` (server): optional TTL for room files (delete older than N days)
 - `VITE_SERVER_URL` (client): server URL override

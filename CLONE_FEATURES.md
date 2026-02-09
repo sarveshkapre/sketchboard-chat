@@ -7,10 +7,14 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] P2 Admin: Show `Invite-only` and `Locked` badges in the rooms list, and add quick filters for those states.
-- [ ] P2 Reliability: Add inactivity GC for rooms (drop in-memory state after N minutes idle unless `PERSIST=1`).
-- [ ] P2 Performance: Reduce full-canvas redraw frequency by drawing incremental strokes to an offscreen buffer and blitting.
-- [ ] P2 Feature: Image import + stickers.
+- [ ] (Selected) P1 Reliability: Retain empty-room state for a bounded window when `PERSIST` is off (config: `ROOM_IDLE_TTL_MS` + `ROOM_GC_INTERVAL_MS`), then GC to avoid unbounded in-memory growth.
+- [ ] (Selected) P2 Admin: Rooms list shows clear `Locked` and `Invite-only` badges, plus quick filters for those states.
+- [ ] P2 Performance: Reduce full-canvas redraw frequency by drawing committed strokes to an offscreen buffer and blitting.
+- [ ] P2 Feature: Image import on canvas (drag/drop + paste), with server-side size caps + validation + opt-in persistence.
+- [ ] P2 Feature: Stickers tool (emoji/stamps) that syncs as first-class board elements (not strokes).
+- [ ] P2 Security: Add a production warning (or stricter default) when `CORS_ORIGIN=*` and `NODE_ENV=production`.
+- [ ] P2 Quality: Add a dev smoke script that opens two rooms and validates isolation (Playwright optional).
+- [ ] P3 UX: Mobile/touch drawing polish (palm rejection, better toolbar sizing, scroll/zoom ergonomics).
 - [ ] P3 Feature: Voice rooms (push-to-talk).
 
 ## Implemented
