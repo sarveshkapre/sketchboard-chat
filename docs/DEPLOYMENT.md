@@ -8,6 +8,7 @@
 - `PORT`: server listen port (default `4000`)
 - `CORS_ORIGIN`: comma-separated allowlist of origins (set this in production)
   - Example: `https://sketch.example.com,https://www.sketch.example.com`
+- `ALLOW_INSECURE_CORS`: optional override to allow `CORS_ORIGIN=*` when `NODE_ENV=production` (not recommended)
 - `AUTH_TOKEN`: optional access token that gates Socket.IO connections
   - If set, the client will prompt for the token and reconnect.
 - `INVITE_SECRET`: enables invite-only rooms with expiring, signed invite links
@@ -40,4 +41,3 @@ npm run smoke
 - Set `AUTH_TOKEN` if your deployment should not be publicly accessible.
 - Keep `ADMIN_TOKEN` private; it grants room-moderation capabilities via HTTP.
 - Set `INVITE_SECRET` if you want invite-only rooms (and keep it stable to avoid breaking old invites).
-

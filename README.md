@@ -30,6 +30,7 @@ View-only example: `http://localhost:5173/r/team-1?mode=view`
 ## Configuration
 - `PORT` (server): default `4000`
 - `CORS_ORIGIN` (server): default `*` (set a comma-separated allowlist in prod, e.g. `https://example.com,https://www.example.com`)
+- `ALLOW_INSECURE_CORS` (server): optional override to allow `CORS_ORIGIN=*` when `NODE_ENV=production` (not recommended)
 - `AUTH_TOKEN` (server): optional access token. If set, Socket.IO clients must provide it (the client will prompt for it on connect).
 - `ADMIN_TOKEN` (server): optional bearer token for admin endpoints (e.g. `/api/rooms`)
 - `INVITE_SECRET` (server): optional secret used to sign invite links (enables invite-only rooms)

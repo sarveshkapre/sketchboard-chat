@@ -16,6 +16,7 @@ import {
   sanitizeStroke,
   sanitizeUserProfile,
 } from './validation.mjs'
+import { checkCorsOriginSafety } from './config.mjs'
 import { appendAuditEvent, createAuditEntry, MAX_AUDIT_EVENTS } from './audit.mjs'
 import { createFixedWindowRateLimiter } from './rate-limit.mjs'
 import { createRoomPersistence } from './persistence.mjs'
@@ -38,9 +39,25 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 const server = http.createServer(app)
+
+const corsOrigin = parseCorsOrigin(process.env.CORS_ORIGIN)
+{
+  const result = checkCorsOriginSafety({
+    nodeEnv: process.env.NODE_ENV,
+    corsOrigin,
+    allowInsecureCors: process.env.ALLOW_INSECURE_CORS,
+  })
+  if (!result.ok) {
+    throw new Error(result.error || 'Unsafe CORS configuration')
+  }
+  if (result.warning) {
+    process.stderr.write(`${result.warning}\n`)
+  }
+}
+
 const io = new Server(server, {
   cors: {
-    origin: parseCorsOrigin(process.env.CORS_ORIGIN),
+    origin: corsOrigin,
   },
 })
 
