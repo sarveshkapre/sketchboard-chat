@@ -2,6 +2,7 @@ export type RoomMetrics = {
   roomId: string
   usersCount: number
   strokesCount: number
+  imagesCount?: number
   messagesCount: number
   locked?: boolean
   private?: boolean

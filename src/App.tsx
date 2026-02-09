@@ -32,6 +32,19 @@ type Stroke = {
   userColor?: string
 }
 
+type BoardImage = {
+  id: string
+  dataUrl: string
+  x: number
+  y: number
+  w: number
+  h: number
+  userId?: string
+  userName?: string
+  userColor?: string
+  createdAt?: string
+}
+
 type ChatMessage = {
   id: string
   text: string
@@ -66,7 +79,7 @@ type PresenceCursorUpdate = {
 type Notice =
   | {
       kind: 'rate_limited'
-      scope: 'chat' | 'stroke' | 'clear' | 'profile' | 'reaction'
+      scope: 'chat' | 'stroke' | 'clear' | 'profile' | 'reaction' | 'image'
       retryAfterMs: number
     }
   | {
@@ -84,6 +97,12 @@ const LIMITS = {
   maxStrokes: 1000,
 }
 const STROKE_BATCH_WINDOW_MS = 900
+const BOARD_BACKGROUND = '#0b0b13'
+
+const IMAGE_LIMITS = {
+  maxBytes: 1_000_000,
+  allowedMime: ['image/png', 'image/jpeg', 'image/webp'],
+}
 
 function isEditableTarget(target: EventTarget | null) {
   if (!target) return false
@@ -129,7 +148,7 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   ctx.save()
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  ctx.strokeStyle = stroke.tool === 'eraser' ? '#0b0b13' : stroke.color
+  ctx.strokeStyle = stroke.tool === 'eraser' ? BOARD_BACKGROUND : stroke.color
   ctx.lineWidth = stroke.size
   ctx.beginPath()
   ctx.moveTo(stroke.points[0].x, stroke.points[0].y)
@@ -149,7 +168,7 @@ function drawStrokeSegment(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   ctx.save()
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  ctx.strokeStyle = stroke.tool === 'eraser' ? '#0b0b13' : stroke.color
+  ctx.strokeStyle = stroke.tool === 'eraser' ? BOARD_BACKGROUND : stroke.color
   ctx.lineWidth = stroke.size
   ctx.beginPath()
   ctx.moveTo(from.x, from.y)
@@ -158,11 +177,55 @@ function drawStrokeSegment(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   ctx.restore()
 }
 
-function drawAll(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-  ctx.fillStyle = '#0b0b13'
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-  strokes.forEach((stroke) => drawStroke(ctx, stroke))
+function setCanvasSize(
+  canvas: HTMLCanvasElement,
+  size: { width: number; height: number; ratio: number },
+  options?: { setStyle?: boolean },
+) {
+  const width = Math.max(1, Math.floor(size.width))
+  const height = Math.max(1, Math.floor(size.height))
+  const ratio = Number.isFinite(size.ratio) && size.ratio > 0 ? size.ratio : 1
+
+  canvas.width = Math.max(1, Math.floor(width * ratio))
+  canvas.height = Math.max(1, Math.floor(height * ratio))
+  if (options?.setStyle) {
+    canvas.style.width = `${width}px`
+    canvas.style.height = `${height}px`
+  }
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+  return ctx
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function decodeDataUrlImage(dataUrl: string): Promise<{ width: number; height: number } | null> {
+  if (!dataUrl) return null
+  const img = new Image()
+  img.src = dataUrl
+  try {
+    // `decode()` is supported in modern browsers; fall back to `onload` if needed.
+    if (typeof img.decode === 'function') {
+      await img.decode()
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('Failed to decode image'))
+      })
+    }
+  } catch {
+    return null
+  }
+  if (!img.naturalWidth || !img.naturalHeight) return null
+  return { width: img.naturalWidth, height: img.naturalHeight }
 }
 
 function RoomSettingsDrawer({
@@ -459,6 +522,7 @@ function App() {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const socketRef = useRef<Socket | null>(null)
   const strokesRef = useRef<Stroke[]>([])
+  const imagesRef = useRef<BoardImage[]>([])
   const drawingRef = useRef<Stroke | null>(null)
   const strokeBatchRef = useRef<{
     id: string
@@ -466,6 +530,29 @@ function App() {
     color: string
     size: number
     endedAt: number
+  } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const layersRef = useRef<{
+    width: number
+    height: number
+    ratio: number
+    base: HTMLCanvasElement
+    strokes: HTMLCanvasElement
+    baseCtx: CanvasRenderingContext2D
+    strokesCtx: CanvasRenderingContext2D
+  } | null>(null)
+  const visibleCtxRef = useRef<CanvasRenderingContext2D | null>(null)
+  const imageCacheRef = useRef<
+    Map<string, { img: HTMLImageElement; status: 'loading' | 'ready' | 'error' }>
+  >(new Map())
+  const renderRafRef = useRef<number | null>(null)
+  const pendingRenderRef = useRef<'none' | 'base' | 'all'>('none')
+  const enqueueRenderRef = useRef<(kind: 'base' | 'all') => void>(() => {})
+  const pendingSelectImageIdRef = useRef<string | null>(null)
+  const imageDragRef = useRef<{
+    id: string
+    start: Point
+    origin: { x: number; y: number; w: number; h: number }
   } | null>(null)
   const cursorRafRef = useRef<number | null>(null)
   const pendingCursorRef = useRef<Point | null>(null)
@@ -486,7 +573,9 @@ function App() {
   const [inviteTtlMs, setInviteTtlMs] = useState(15 * 60 * 1000)
   const [color, setColor] = useState(COLORS[0])
   const [size, setSize] = useState(SIZES[1])
-  const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
+  const [tool, setTool] = useState<'pen' | 'eraser' | 'select'>('pen')
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
+  const selectedImageIdRef = useRef<string | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [roomInput, setRoomInput] = useState(initialRoomId)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
@@ -537,21 +626,134 @@ function App() {
     })
   }, [initialRoomId, initialViewOnly, initialInvite, initialAuthToken, userKey])
 
+  const compositeLayers = useCallback(() => {
+    const layers = layersRef.current
+    const ctx = visibleCtxRef.current
+    if (!layers || !ctx) return
+    ctx.clearRect(0, 0, layers.width, layers.height)
+    ctx.drawImage(layers.base, 0, 0, layers.width, layers.height)
+    ctx.drawImage(layers.strokes, 0, 0, layers.width, layers.height)
+
+    if (tool === 'select') {
+      const selected = selectedImageIdRef.current
+      if (selected) {
+        const image = imagesRef.current.find((img) => img.id === selected)
+        if (image) {
+          ctx.save()
+          ctx.strokeStyle = '#ffd93d'
+          ctx.lineWidth = 2
+          ctx.setLineDash([6, 4])
+          ctx.strokeRect(image.x, image.y, image.w, image.h)
+          ctx.restore()
+        }
+      }
+    }
+  }, [tool])
+
+  const rebuildStrokesLayer = useCallback(() => {
+    const layers = layersRef.current
+    if (!layers) return
+    const ctx = layers.strokesCtx
+    ctx.clearRect(0, 0, layers.width, layers.height)
+    strokesRef.current.forEach((stroke) => drawStroke(ctx, stroke))
+  }, [])
+
+  const getCachedImage = useCallback((dataUrl: string) => {
+    const cache = imageCacheRef.current
+    const existing = cache.get(dataUrl)
+    if (existing) return existing
+
+    const img = new Image()
+    const entry = { img, status: 'loading' as const }
+    cache.set(dataUrl, entry)
+
+    const mark = (status: 'ready' | 'error') => {
+      const current = cache.get(dataUrl)
+      if (!current) return
+      current.status = status
+      enqueueRenderRef.current('base')
+    }
+
+    img.onload = () => mark('ready')
+    img.onerror = () => mark('error')
+    img.src = dataUrl
+    return entry
+  }, [])
+
+  const rebuildBaseLayer = useCallback(() => {
+    const layers = layersRef.current
+    if (!layers) return
+    const ctx = layers.baseCtx
+    ctx.clearRect(0, 0, layers.width, layers.height)
+    ctx.fillStyle = BOARD_BACKGROUND
+    ctx.fillRect(0, 0, layers.width, layers.height)
+
+    for (const boardImage of imagesRef.current) {
+      if (!boardImage?.dataUrl) continue
+      const cached = getCachedImage(boardImage.dataUrl)
+      if (cached.status !== 'ready') continue
+      ctx.drawImage(cached.img, boardImage.x, boardImage.y, boardImage.w, boardImage.h)
+    }
+  }, [getCachedImage])
+
+  const scheduleRender = useCallback(
+    (kind: 'base' | 'all') => {
+      pendingRenderRef.current =
+        kind === 'all' ? 'all' : pendingRenderRef.current === 'all' ? 'all' : 'base'
+      if (renderRafRef.current !== null) return
+      renderRafRef.current = window.requestAnimationFrame(() => {
+        renderRafRef.current = null
+        const next = pendingRenderRef.current
+        pendingRenderRef.current = 'none'
+        if (next === 'none') return
+
+        if (next === 'all') {
+          rebuildBaseLayer()
+          rebuildStrokesLayer()
+          compositeLayers()
+          return
+        }
+
+        rebuildBaseLayer()
+        compositeLayers()
+      })
+    },
+    [rebuildBaseLayer, rebuildStrokesLayer, compositeLayers],
+  )
+
+  useEffect(() => {
+    enqueueRenderRef.current = scheduleRender
+  }, [scheduleRender])
+
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current
     const wrapper = wrapperRef.current
     if (!canvas || !wrapper) return
     const rect = wrapper.getBoundingClientRect()
     const ratio = window.devicePixelRatio || 1
-    canvas.width = rect.width * ratio
-    canvas.height = rect.height * ratio
-    canvas.style.width = `${rect.width}px`
-    canvas.style.height = `${rect.height}px`
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.scale(ratio, ratio)
-    drawAll(ctx, strokesRef.current)
-  }, [])
+
+    const visibleCtx = setCanvasSize(canvas, { width: rect.width, height: rect.height, ratio }, { setStyle: true })
+    if (!visibleCtx) return
+    visibleCtxRef.current = visibleCtx
+
+    const base = layersRef.current?.base ?? document.createElement('canvas')
+    const strokes = layersRef.current?.strokes ?? document.createElement('canvas')
+    const baseCtx = setCanvasSize(base, { width: rect.width, height: rect.height, ratio })
+    const strokesCtx = setCanvasSize(strokes, { width: rect.width, height: rect.height, ratio })
+    if (!baseCtx || !strokesCtx) return
+
+    layersRef.current = {
+      width: rect.width,
+      height: rect.height,
+      ratio,
+      base,
+      strokes,
+      baseCtx,
+      strokesCtx,
+    }
+
+    scheduleRender('all')
+  }, [scheduleRender])
 
   const scheduleCursorEmit = useCallback(
     (point: Point) => {
@@ -635,8 +837,9 @@ function App() {
       }
       setMessages(payload.messages.slice(-LIMITS.maxMessages))
       strokesRef.current = payload.strokes.slice(-LIMITS.maxStrokes)
-      const ctx = canvasRef.current?.getContext('2d')
-      if (ctx) drawAll(ctx, payload.strokes)
+      imagesRef.current = Array.isArray(payload.images) ? payload.images : []
+      setSelectedImageId(null)
+      resizeCanvas()
     })
 
     socket.on('presence:update', (nextUsers) => {
@@ -655,7 +858,11 @@ function App() {
 
     socket.on('stroke:add', (stroke: Stroke) => {
       strokesRef.current = [...strokesRef.current, stroke].slice(-LIMITS.maxStrokes)
-      const ctx = canvasRef.current?.getContext('2d')
+      const layers = layersRef.current
+      if (layers) {
+        drawStroke(layers.strokesCtx, stroke)
+      }
+      const ctx = visibleCtxRef.current ?? canvasRef.current?.getContext('2d')
       if (ctx) drawStroke(ctx, stroke)
     })
 
@@ -665,14 +872,63 @@ function App() {
       const next = strokesRef.current.filter((stroke) => stroke.id !== id)
       if (next.length === strokesRef.current.length) return
       strokesRef.current = next
-      const ctx = canvasRef.current?.getContext('2d')
-      if (ctx) drawAll(ctx, next)
+      scheduleRender('all')
     })
 
     socket.on('board:clear', () => {
       strokesRef.current = []
-      const ctx = canvasRef.current?.getContext('2d')
-      if (ctx) drawAll(ctx, [])
+      imagesRef.current = []
+      setSelectedImageId(null)
+      scheduleRender('all')
+    })
+
+    socket.on('image:add', (image: BoardImage) => {
+      if (!image?.id) return
+      const next = imagesRef.current.slice()
+      const index = next.findIndex((entry) => entry.id === image.id)
+      if (index >= 0) {
+        next[index] = { ...next[index], ...image }
+      } else {
+        next.push(image)
+      }
+      imagesRef.current = next
+      if (pendingSelectImageIdRef.current === image.id) {
+        pendingSelectImageIdRef.current = null
+        setTool('select')
+        setSelectedImageId(image.id)
+      }
+      scheduleRender('base')
+    })
+
+    socket.on('image:update', (payload: { id?: string; x?: number; y?: number; w?: number; h?: number }) => {
+      const id = String(payload?.id || '').trim()
+      if (!id) return
+      const index = imagesRef.current.findIndex((img) => img.id === id)
+      if (index < 0) return
+      const current = imagesRef.current[index]
+      if (!current) return
+      const next = imagesRef.current.slice()
+      next[index] = {
+        ...current,
+        x: Number(payload.x),
+        y: Number(payload.y),
+        w: Number(payload.w),
+        h: Number(payload.h),
+      }
+      imagesRef.current = next
+      scheduleRender('base')
+    })
+
+    socket.on('image:remove', (payload: { id?: string }) => {
+      const id = String(payload?.id || '').trim()
+      if (!id) return
+      const next = imagesRef.current.filter((img) => img.id !== id)
+      if (next.length === imagesRef.current.length) return
+      imagesRef.current = next
+      if (selectedImageIdRef.current === id) {
+        setSelectedImageId(null)
+      }
+      scheduleRender('base')
     })
 
     socket.on('room:lock', (payload: { locked: boolean }) => {
@@ -753,12 +1009,17 @@ function App() {
                 ? 'Clear'
                 : notice.scope === 'reaction'
                   ? 'Reactions'
+                  : notice.scope === 'image'
+                    ? 'Images'
                   : 'Profile'
         setToast(`${label} is rate limited — try again in ${Math.ceil(notice.retryAfterMs / 1000)}s.`)
         return
       }
       if (notice.kind === 'info') {
         const message = String(notice.message || '')
+        if (/invalid image|too many images/i.test(message)) {
+          pendingSelectImageIdRef.current = null
+        }
         if (/invite link required/i.test(message)) {
           setAccessBlock({ kind: 'invite', message })
           setAccessInput('')
@@ -779,7 +1040,7 @@ function App() {
       }
       socket.disconnect()
     }
-  }, [socket, cursorRafRef])
+  }, [socket, resizeCanvas, scheduleRender])
 
   useEffect(() => {
     resizeCanvas()
@@ -796,6 +1057,15 @@ function App() {
     const timeout = window.setTimeout(() => setToast(null), 1600)
     return () => window.clearTimeout(timeout)
   }, [toast])
+
+  useEffect(() => {
+    selectedImageIdRef.current = selectedImageId
+  }, [selectedImageId])
+
+  useEffect(() => {
+    if (tool !== 'select') return
+    scheduleRender('base')
+  }, [tool, selectedImageId, scheduleRender])
 
   useEffect(() => {
     if (!selfId) return
@@ -910,6 +1180,22 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [canEdit])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return
+      if (!canEdit) return
+      if (tool !== 'select') return
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return
+      const id = selectedImageIdRef.current
+      if (!id) return
+      event.preventDefault()
+      socketRef.current?.emit('image:remove', { id })
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [canEdit, tool])
+
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!canEdit) return
     const canvas = canvasRef.current
@@ -917,12 +1203,33 @@ function App() {
     canvas.setPointerCapture(event.pointerId)
     const rect = canvas.getBoundingClientRect()
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+
+    if (tool === 'select') {
+      const images = imagesRef.current
+      for (let i = images.length - 1; i >= 0; i -= 1) {
+        const img = images[i]
+        if (!img) continue
+        if (point.x < img.x || point.y < img.y) continue
+        if (point.x > img.x + img.w || point.y > img.y + img.h) continue
+        setSelectedImageId(img.id)
+        imageDragRef.current = {
+          id: img.id,
+          start: point,
+          origin: { x: img.x, y: img.y, w: img.w, h: img.h },
+        }
+        return
+      }
+      setSelectedImageId(null)
+      imageDragRef.current = null
+      return
+    }
+
     const now = Date.now()
     const previousBatch = strokeBatchRef.current
     const canReuseBatch =
       previousBatch &&
       now - previousBatch.endedAt <= STROKE_BATCH_WINDOW_MS &&
-      previousBatch.tool === tool &&
+      previousBatch.tool === (tool === 'eraser' ? 'eraser' : 'pen') &&
       previousBatch.color === color &&
       previousBatch.size === size
     const batchId = canReuseBatch ? previousBatch.id : createId('batch')
@@ -931,7 +1238,7 @@ function App() {
       batchId,
       color,
       size,
-      tool,
+      tool: tool === 'eraser' ? 'eraser' : 'pen',
       points: [point],
     }
     drawingRef.current = stroke
@@ -945,15 +1252,48 @@ function App() {
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
     scheduleCursorEmit(point)
 
+    if (tool === 'select' && imageDragRef.current) {
+      const drag = imageDragRef.current
+      const dx = point.x - drag.start.x
+      const dy = point.y - drag.start.y
+      const index = imagesRef.current.findIndex((img) => img.id === drag.id)
+      if (index < 0) return
+      const current = imagesRef.current[index]
+      if (!current) return
+      const next = imagesRef.current.slice()
+      next[index] = { ...current, x: drag.origin.x + dx, y: drag.origin.y + dy }
+      imagesRef.current = next
+      scheduleRender('base')
+      return
+    }
+
     if (!drawingRef.current) return
     if (drawingRef.current.points.length >= LIMITS.maxStrokePoints) return
     drawingRef.current.points.push(point)
-    const ctx = canvas.getContext('2d')
+    const ctx = visibleCtxRef.current ?? canvas.getContext('2d')
     if (ctx) drawStrokeSegment(ctx, drawingRef.current)
   }
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!canEdit) return
+    if (tool === 'select') {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+      const drag = imageDragRef.current
+      imageDragRef.current = null
+      if (drag) {
+        const image = imagesRef.current.find((img) => img.id === drag.id)
+        if (image) {
+          socketRef.current?.emit('image:update', {
+            id: image.id,
+            x: image.x,
+            y: image.y,
+            w: image.w,
+            h: image.h,
+          })
+        }
+      }
+      return
+    }
     if (!drawingRef.current) return
     event.currentTarget.releasePointerCapture(event.pointerId)
     const stroke = drawingRef.current
@@ -966,6 +1306,10 @@ function App() {
       endedAt: Date.now(),
     }
     strokesRef.current = [...strokesRef.current, stroke].slice(-LIMITS.maxStrokes)
+    const layers = layersRef.current
+    if (layers) {
+      drawStroke(layers.strokesCtx, stroke)
+    }
     socketRef.current?.emit('stroke:add', stroke)
   }
 
@@ -1035,6 +1379,114 @@ function App() {
     socketRef.current?.emit('role:set', { userId, role: nextRole })
   }
 
+  const importImageFile = useCallback(
+    async (file: File) => {
+      if (!canEdit) return
+      if (!file) return
+      if (!IMAGE_LIMITS.allowedMime.includes(file.type)) {
+        setToast('Unsupported image type (use PNG/JPEG/WebP).')
+        return
+      }
+      if (file.size > IMAGE_LIMITS.maxBytes) {
+        setToast(`Image too large (max ${Math.floor(IMAGE_LIMITS.maxBytes / 1024)}KB).`)
+        return
+      }
+      if (!socketRef.current?.connected) {
+        setToast('Offline: cannot send images.')
+        return
+      }
+
+      let dataUrl = ''
+      try {
+        dataUrl = await readFileAsDataUrl(file)
+      } catch {
+        setToast('Failed to read image.')
+        return
+      }
+      if (!dataUrl.startsWith('data:image/')) {
+        setToast('Invalid image data.')
+        return
+      }
+
+      const decoded = await decodeDataUrlImage(dataUrl)
+      if (!decoded) {
+        setToast('Failed to decode image.')
+        return
+      }
+
+      const wrapper = wrapperRef.current
+      if (!wrapper) return
+      const rect = wrapper.getBoundingClientRect()
+
+      const maxW = rect.width * 0.7
+      const maxH = rect.height * 0.7
+      const scale = Math.min(maxW / decoded.width, maxH / decoded.height, 1)
+      const w = Math.max(8, decoded.width * scale)
+      const h = Math.max(8, decoded.height * scale)
+      const x = (rect.width - w) / 2
+      const y = (rect.height - h) / 2
+
+      const id = createId('img')
+      pendingSelectImageIdRef.current = id
+      socketRef.current.emit('image:add', { id, dataUrl, x, y, w, h })
+      setToast('Image added.')
+    },
+    [canEdit],
+  )
+
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (!canEdit) return
+      if (isEditableTarget(event.target)) return
+      const items = event.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (!item) continue
+        if (!item.type.startsWith('image/')) continue
+        const file = item.getAsFile()
+        if (!file) continue
+        event.preventDefault()
+        void importImageFile(file)
+        break
+      }
+    }
+
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [canEdit, importImageFile])
+
+  const handlePickImage = () => {
+    if (!canEdit) return
+    fileInputRef.current?.click()
+  }
+
+  const handleFilePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null
+    event.target.value = ''
+    if (!file) return
+    await importImageFile(file)
+  }
+
+  const handleBoardDragOver = (event: React.DragEvent) => {
+    if (!canEdit) return
+    event.preventDefault()
+  }
+
+  const handleBoardDrop = (event: React.DragEvent) => {
+    if (!canEdit) return
+    event.preventDefault()
+    const file = event.dataTransfer.files?.[0] ?? null
+    if (!file) return
+    void importImageFile(file)
+  }
+
+  const handleRemoveSelectedImage = () => {
+    if (!canEdit) return
+    const id = selectedImageIdRef.current
+    if (!id) return
+    socketRef.current?.emit('image:remove', { id })
+  }
+
   const handleExport = () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -1051,9 +1503,10 @@ function App() {
 
     const svg = strokesToSvg({
       strokes: strokesRef.current,
+      images: imagesRef.current,
       width: rect.width,
       height: rect.height,
-      background: '#0b0b13',
+      background: BOARD_BACKGROUND,
     })
 
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
@@ -1292,6 +1745,14 @@ function App() {
               >
                 Eraser
               </button>
+              <button
+                className={tool === 'select' ? 'active' : ''}
+                onClick={() => setTool('select')}
+                disabled={!canEdit}
+                title="Select/move images"
+              >
+                Select
+              </button>
             </div>
             <div className="tool-group">
               {COLORS.map((swatch) => (
@@ -1327,12 +1788,26 @@ function App() {
               <button onClick={handleClear} disabled={!canEdit}>
                 Clear
               </button>
+              <button onClick={handlePickImage} disabled={!canEdit} title="Add image (or paste/drag/drop)">
+                Image
+              </button>
+              <button onClick={handleRemoveSelectedImage} disabled={!canEdit || !selectedImageId}>
+                Delete image
+              </button>
               <button onClick={handleExport}>Export PNG</button>
               <button onClick={handleExportSvg}>Export SVG</button>
             </div>
           </div>
 
-          <div className="board-stage" ref={wrapperRef}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={IMAGE_LIMITS.allowedMime.join(',')}
+            style={{ display: 'none' }}
+            onChange={handleFilePicked}
+          />
+
+          <div className="board-stage" ref={wrapperRef} onDragOver={handleBoardDragOver} onDrop={handleBoardDrop}>
             <canvas
               ref={canvasRef}
               onPointerDown={handlePointerDown}
@@ -1492,7 +1967,7 @@ function App() {
                           </span>
                           <span className="room-meta">
                             {room.usersCount} users · {room.strokesCount} strokes ·{' '}
-                            {room.messagesCount} msgs
+                            {room.imagesCount ?? 0} imgs · {room.messagesCount} msgs
                           </span>
                         </button>
                         {adminToken.trim() ? (

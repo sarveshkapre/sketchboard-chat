@@ -50,5 +50,17 @@ describe('svg export', () => {
     expect(svg).toContain('stroke="#0b0b13"')
     expect(svg).toContain('stroke-width="6"')
   })
-})
 
+  it('can embed board images', () => {
+    const svg = strokesToSvg({
+      strokes: [],
+      images: [{ id: 'i1', dataUrl: 'data:image/png;base64,AAA=', x: 1, y: 2, w: 10, h: 12 }],
+      width: 100,
+      height: 100,
+      background: '#0b0b13',
+    })
+
+    expect(svg).toContain('<image')
+    expect(svg).toContain('href="data:image/png;base64,AAA="')
+  })
+})
