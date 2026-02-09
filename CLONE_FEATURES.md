@@ -7,9 +7,6 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] P1 Performance (selected): Optimize in-progress drawing by rendering only the newest stroke segment on pointermove (avoid re-stroking the full path each frame).
-- [ ] P1 Security (selected): Add a production guardrail when `CORS_ORIGIN=*` (warn loudly or refuse to start unless explicitly allowed).
-- [ ] P1 Quality (selected): Add a deterministic "room isolation" smoke that opens two Socket.IO rooms and verifies strokes/messages do not leak.
 - [ ] P2 Performance: Reduce full-canvas redraw frequency by drawing committed strokes to an offscreen buffer and blitting.
 - [ ] P2 Feature: Image import on canvas (drag/drop + paste), with server-side size caps + validation + opt-in persistence.
 - [ ] P2 Feature: Stickers tool (emoji/stamps) that syncs as first-class board elements (not strokes).
@@ -17,6 +14,9 @@
 - [ ] P3 Feature: Voice rooms (push-to-talk).
 
 ## Implemented
+- [x] (2026-02-09) P1 Performance: Optimize in-progress drawing by rendering only the newest stroke segment on pointermove. Evidence: `src/App.tsx`; `npm run check`.
+- [x] (2026-02-09) P1 Security: Refuse to start with `CORS_ORIGIN=*` when `NODE_ENV=production` unless explicitly overridden via `ALLOW_INSECURE_CORS=1`. Evidence: `server/config.mjs`, `server/index.mjs`, `tests/cors-guard.test.ts`, `README.md`, `docs/DEPLOYMENT.md`, `docs/SECURITY.md`; `npm run check`.
+- [x] (2026-02-09) P1 Quality: Extend `npm run smoke` to verify Socket.IO room isolation (strokes + chat do not leak across rooms). Evidence: `scripts/smoke.mjs`; `npm run smoke`.
 - [x] (2026-02-09) P1 Reliability: Retain empty-room state for a bounded window when `PERSIST` is off (config: `ROOM_IDLE_TTL_MS` + `ROOM_GC_INTERVAL_MS`), then GC to avoid unbounded in-memory growth. Evidence: `server/index.mjs`, `tests/room-idle-gc.test.ts`, `README.md`, `docs/PROJECT.md`.
 - [x] (2026-02-09) P2 Admin: Rooms list shows clear `Locked` and `Invite-only` badges, plus quick filters for those states. Evidence: `src/App.tsx`, `src/App.css`.
 - [x] (2026-02-09) P2 DX: Added `npm run smoke` and switched CI smoke to use it. Evidence: `scripts/smoke.mjs`, `package.json`, `.github/workflows/ci.yml`.
@@ -48,6 +48,7 @@
 - Market baseline: realtime whiteboards typically ship share links and fine-grained access modes (view/comment/edit), with optional expiring links/passwords for public sharing. Sources: `https://help.miro.com/hc/en-us/articles/360017730893-Invite-people-to-collaborate-on-your-board`, `https://help.miro.com/hc/en-us/articles/360017572454-Share-boards-and-projects`.
 - Collaboration baseline: tools like Excalidraw and tldraw emphasize lightweight "share a link to collaborate" flows. Sources: `https://docs.excalidraw.com/docs/@excalidraw/excalidraw/`, `https://tldraw.dev/`.
 - Image import baseline: mainstream whiteboards support drag/drop and paste-from-clipboard images directly onto the canvas, usually with basic resizing and layer controls. Sources: `https://help.miro.com/hc/en-us/articles/360017730773-Upload-files-to-a-board`, `https://help.figma.com/hc/en-us/articles/4404878935693-Add-images-to-FigJam`, `https://tldraw.dev/blog/flip`.
+- Stickers/stamps baseline: modern whiteboards include lightweight stamp/sticker tools (often with quick keyboard entry) for low-friction feedback and annotation. Sources: `https://help.figma.com/hc/en-us/articles/360047238133-Use-stamps-in-FigJam`, `https://miro.com/es/help/miro-reactions-and-stickers/`.
 
 ## Notes
 - This file is maintained by the autonomous clone loop.
