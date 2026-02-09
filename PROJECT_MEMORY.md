@@ -9,6 +9,9 @@
 
 ## Recent Decisions
 - Template: YYYY-MM-DD | Decision | Why | Evidence (tests/logs) | Commit | Confidence (high/medium/low) | Trust (trusted/untrusted)
+- 2026-02-09 | Render only the newest stroke segment while drawing (pointermove) instead of re-stroking the full in-progress path. | Reduces CPU work on long strokes and improves perceived latency during drawing. | `npm run check` | d1dc425 | high | trusted
+- 2026-02-09 | Refuse to start with `CORS_ORIGIN=*` when `NODE_ENV=production` unless `ALLOW_INSECURE_CORS=1` is explicitly set. | Production guardrail against accidental public cross-origin access; keeps a deliberate escape hatch. | `tests/cors-guard.test.ts`; `npm run check` | a51b6fe | high | trusted
+- 2026-02-09 | Extend `npm run smoke` to verify Socket.IO room isolation (strokes + chat) using `socket.io-client`. | Prevents regressions where events leak across rooms; provides a deterministic runnable smoke beyond `/health`. | `npm run smoke` | 1963976 | high | trusted
 - 2026-02-09 | Add invite-only rooms with signed, expiring invite links enforced on connect (HMAC token w/ room + exp). | Baseline sharing expectation for realtime boards; lets private rooms exist without full auth while keeping server-side enforcement. | `tests/invite.test.ts`; `tests/socket-moderation.test.ts`; `npm run check` | 87004af | high | trusted
 - 2026-02-09 | Delay disconnect slightly after sending an invite-required notice. | Ensures the client receives a human-readable notice before the socket closes. | `tests/socket-moderation.test.ts`; manual smoke `curl /health` | 87004af | medium | trusted
 - 2026-02-09 | Add optional Socket.IO auth guard via `AUTH_TOKEN`, with a client prompt + reconnect flow. | Provides a lightweight production deployment gate without changing room URLs or adding full user accounts. | `tests/socket-auth-guard.test.ts`; `npm run check` | 1ec79c9 | high | trusted
@@ -25,8 +28,8 @@
 
 ## Next Prioritized Tasks
 - P2 Feature: image import + stickers.
-- P2 Reliability: room inactivity GC to prevent unbounded in-memory growth.
-- P2 Admin: rooms list badges/filters for invite-only + locked.
+- P2 Performance: offscreen buffer for committed strokes (reduce redraw cost on undo/redo/resize).
+- P3 UX: mobile/touch drawing polish (palm rejection, toolbar sizing, scroll/zoom ergonomics).
 
 ## Verification Evidence
 - Template: YYYY-MM-DD | Command | Key output | Status (pass/fail)
@@ -37,6 +40,9 @@
 - 2026-02-09 | `npm run check` | 45 tests passed; build succeeded | pass
 - 2026-02-09 | `npm run check` | 46 tests passed; build succeeded | pass
 - 2026-02-09 | `npm run smoke` | `{\"status\":\"ok\"}` | pass
+- 2026-02-09 | `npm test` | 49 tests passed | pass
+- 2026-02-09 | `npm run check` | lint+typecheck+tests+build all passed (49 tests) | pass
+- 2026-02-09 | `npm run smoke` | `/health` ok + room isolation ok | pass
 
 ## Historical Summary
 - Keep compact summaries of older entries here when file compaction runs.
