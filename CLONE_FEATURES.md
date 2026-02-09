@@ -7,13 +7,17 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] P2 Performance: Reduce full-canvas redraw frequency by drawing committed strokes to an offscreen buffer and blitting.
-- [ ] P2 Feature: Image import on canvas (drag/drop + paste), with server-side size caps + validation + opt-in persistence.
 - [ ] P2 Feature: Stickers tool (emoji/stamps) that syncs as first-class board elements (not strokes).
+- [ ] P2 UX: Basic zoom/pan (trackpad + touch) with stable cursor coordinates and crisp rendering.
+- [ ] P2 Feature: Text tool (place/edit/move short labels) as first-class elements.
 - [ ] P3 UX: Mobile/touch drawing polish (palm rejection, better toolbar sizing, scroll/zoom ergonomics).
+- [ ] P3 Reliability: Add server-side caps for total bytes of persisted room state (strokes + chat + images) to prevent disk abuse when `PERSIST=1`.
 - [ ] P3 Feature: Voice rooms (push-to-talk).
 
 ## Implemented
+- [x] (2026-02-09) P1 Feature: Image import (paste/drag/drop/file picker), synced per room with server-side validation/caps and persistence support (SVG export embeds images; admin rooms list shows image counts). Evidence: `server/index.mjs`, `server/validation.mjs`, `server/persistence.mjs`, `server/rooms-metrics.mjs`, `src/App.tsx`, `src/svg.ts`, `src/adminRooms.ts`, `tests/socket-images.test.ts`, `tests/server-validation.test.ts`, `tests/persistence.test.ts`, `tests/rooms-metrics.test.ts`, `tests/svg.test.ts`; `npm run check`.
+- [x] (2026-02-09) P1 UX: Select tool to move/delete imported images (includes keyboard delete/backspace). Evidence: `src/App.tsx`; `npm run check`.
+- [x] (2026-02-09) P2 Performance: Offscreen layers for committed strokes + background/images; compositing avoids full redraws during normal drawing. Evidence: `src/App.tsx`; `npm run check`.
 - [x] (2026-02-09) P1 Performance: Optimize in-progress drawing by rendering only the newest stroke segment on pointermove. Evidence: `src/App.tsx`; `npm run check`.
 - [x] (2026-02-09) P1 Security: Refuse to start with `CORS_ORIGIN=*` when `NODE_ENV=production` unless explicitly overridden via `ALLOW_INSECURE_CORS=1`. Evidence: `server/config.mjs`, `server/index.mjs`, `tests/cors-guard.test.ts`, `README.md`, `docs/DEPLOYMENT.md`, `docs/SECURITY.md`; `npm run check`.
 - [x] (2026-02-09) P1 Quality: Extend `npm run smoke` to verify Socket.IO room isolation (strokes + chat do not leak across rooms). Evidence: `scripts/smoke.mjs`; `npm run smoke`.

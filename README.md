@@ -8,6 +8,7 @@ Realtime sketching board with multiplayer presence and chat. Draw together, see 
 - Group chat panel
 - Room-based sessions via `?room=...`
 - Undo/redo (per-user, action-grouped, synced)
+- Image import (paste/drag/drop/file picker) with a select tool to move/delete images (synced)
 - User profiles (display name + color)
 - Room roles (owner/mod) with in-room moderation
 - Room activity log for moderation changes

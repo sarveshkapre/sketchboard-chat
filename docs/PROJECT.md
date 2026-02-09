@@ -17,6 +17,7 @@ The first non-view-only user becomes room owner and can promote moderators.
 Moderation actions (lock, kick, role changes) appear in the room activity log.
 Chat supports emoji reactions and a single pinned message per room.
 Rooms can optionally be made invite-only (requires `INVITE_SECRET`); moderators can create expiring invite links.
+Images can be added via paste/drag-drop/file picker and moved/deleted using the Select tool.
 
 ## Environment
 - `PORT` (server): default `4000`
@@ -34,6 +35,6 @@ Rooms can optionally be made invite-only (requires `INVITE_SECRET`); moderators 
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
-1. Image import + stickers.
-2. Room inactivity GC to avoid unbounded in-memory growth.
-3. Admin rooms list badges/filters for `invite-only` and `locked`.
+1. Stickers tool (emoji/stamps) as first-class board elements.
+2. Basic zoom/pan (trackpad + touch) with stable cursor coordinates.
+3. Server-side cap for total bytes of persisted room state (strokes + chat + images) when `PERSIST=1`.

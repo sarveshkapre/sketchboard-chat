@@ -1,9 +1,11 @@
 # ROADMAP
 
 ## Near-term
-- Image import + stickers.
+- Stickers tool (emoji/stamps) as first-class board elements.
+- Basic zoom/pan (trackpad + touch).
 
 ## Done
+- Image import (paste/drag/drop/file picker) with a select tool to move/delete images.
 - Optional lightweight auth guard for production deployments.
 - Invite UX: selectable invite TTL + regenerate/revoke flow.
 - Room settings drawer (lock, invite, roles).

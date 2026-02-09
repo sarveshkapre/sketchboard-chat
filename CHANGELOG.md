@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+- Added synced image import (paste/drag/drop/file picker), plus a Select tool to move/delete images.
+- Admin rooms panel now shows image counts per room.
 - When `PERSIST` is off, empty rooms are retained briefly in memory (configurable TTL) to avoid accidental board loss on quick reconnects.
 - Rooms list now shows `Locked` and `Invite-only` badges, with quick filters for those states.
 - Room-based sessions via `?room=...` (isolated board state + presence + chat).

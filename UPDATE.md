@@ -3,6 +3,8 @@
 ## Shipped
 - Reliability: When `PERSIST` is off, empty rooms are retained briefly in memory (configurable TTL) to avoid accidental board loss on quick reconnects.
 - Admin UX: Rooms list now shows `Locked` and `Invite-only` badges, with quick filters for those states.
+- Feature: Image import (paste/drag/drop/file picker), synced per room.
+- UX: Select tool to move/delete images; SVG export embeds images; admin rooms list shows image counts.
 
 ## Verified
 - `npm run check`
