@@ -13,11 +13,13 @@ export function snapshotRooms(rooms, options) {
   for (const [roomId, room] of rooms.entries()) {
     const usersCount = room?.users?.size ?? 0
     const strokesCount = Array.isArray(room?.strokes) ? room.strokes.length : 0
+    const imagesCount = Array.isArray(room?.images) ? room.images.length : 0
     const messagesCount = Array.isArray(room?.messages) ? room.messages.length : 0
     const entry = {
       roomId,
       usersCount,
       strokesCount,
+      imagesCount,
       messagesCount,
       locked: Boolean(room?.locked),
       private: Boolean(room?.private),

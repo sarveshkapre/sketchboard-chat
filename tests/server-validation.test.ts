@@ -4,6 +4,8 @@ import {
   parseCorsOrigin,
   sanitizeChatMessage,
   sanitizeCursor,
+  sanitizeBoardImage,
+  sanitizeBoardImageUpdate,
   sanitizeMessageId,
   sanitizeReaction,
   sanitizeUserProfile,
@@ -107,5 +109,30 @@ describe('server validation', () => {
       limits,
     )
     expect(withoutBatch?.batchId).toBeUndefined()
+  })
+
+  it('sanitizes board images (raster-only) and image updates', () => {
+    const tinyPng =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2bkAAAAASUVORK5CYII='
+    const limits = { maxImageBytes: 10_000, allowedImageMime: ['image/png', 'image/jpeg', 'image/webp'] }
+
+    const image = sanitizeBoardImage(
+      { id: 'img-1', dataUrl: tinyPng, x: 1, y: 2, w: 100, h: 120 },
+      limits,
+    )
+    expect(image?.id).toBe('img-1')
+    expect(image?.mime).toBe('image/png')
+    expect(image?.bytes).toBeGreaterThan(0)
+
+    expect(sanitizeBoardImage({ dataUrl: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=', x: 0, y: 0, w: 10, h: 10 }, limits)).toBe(null)
+
+    expect(sanitizeBoardImageUpdate({ id: 'img-1', x: 5, y: 6, w: 7, h: 8 })).toEqual({
+      id: 'img-1',
+      x: 5,
+      y: 6,
+      w: 8,
+      h: 8,
+    })
+    expect(sanitizeBoardImageUpdate({ id: '', x: 1, y: 2, w: 3, h: 4 })).toBe(null)
   })
 })

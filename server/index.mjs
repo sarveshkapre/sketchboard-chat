@@ -10,6 +10,8 @@ import {
   parseCorsOrigin,
   sanitizeChatMessage,
   sanitizeCursor,
+  sanitizeBoardImage,
+  sanitizeBoardImageUpdate,
   sanitizeMessageId,
   sanitizeReaction,
   sanitizeRoomId,
@@ -86,6 +88,9 @@ const LIMITS = {
   maxMessageLength: 400,
   maxMessages: 200,
   maxStrokes: 1000,
+  maxImages: 20,
+  maxImageBytes: 1_000_000,
+  allowedImageMime: ['image/png', 'image/jpeg', 'image/webp'],
 }
 
 const persistence = createRoomPersistence({
@@ -104,6 +109,7 @@ const persistence = createRoomPersistence({
     maxStrokes: LIMITS.maxStrokes,
     maxMessages: LIMITS.maxMessages,
     maxAudit: MAX_AUDIT_EVENTS,
+    maxImages: LIMITS.maxImages,
   },
 })
 
@@ -148,6 +154,8 @@ const RATE_LIMITS = {
   clearMax: 2,
   profileWindowMs: 5000,
   profileMax: 3,
+  imageWindowMs: 12_000,
+  imageMax: 4,
 }
 
 const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b5de5']
@@ -172,6 +180,7 @@ function toPublicUser(user) {
 function createRoomState() {
   return {
     strokes: [],
+    images: [],
     messages: [],
     audit: [],
     pinnedId: null,
@@ -198,6 +207,9 @@ function getRoom(roomId) {
       .then((loaded) => {
         if (loaded) {
           created.strokes = loaded.strokes
+          if (Array.isArray(loaded.images)) {
+            created.images = loaded.images
+          }
           created.messages = loaded.messages
           if (Array.isArray(loaded.audit)) {
             created.audit = loaded.audit.filter(
@@ -529,6 +541,7 @@ io.on('connection', async (socket) => {
   socket.emit('init', {
     roomId,
     strokes: room.strokes,
+    images: Array.isArray(room.images) ? room.images : [],
     messages: room.messages,
     audit: Array.isArray(room.audit) ? room.audit : [],
     pinnedId: room.pinnedId ?? null,
@@ -565,6 +578,10 @@ io.on('connection', async (socket) => {
     windowMs: 1000,
     max: 12,
   })
+  const imageLimiter = createFixedWindowRateLimiter({
+    windowMs: RATE_LIMITS.imageWindowMs,
+    max: RATE_LIMITS.imageMax,
+  })
 
   socket.on('stroke:add', (stroke) => {
     if (room.locked) {
@@ -597,6 +614,100 @@ io.on('connection', async (socket) => {
     }
     persistence.scheduleSave(roomId, room)
     socket.to(roomId).emit('stroke:add', entry)
+  })
+
+  socket.on('image:add', (payload) => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
+    if (isViewOnly) return
+    const limit = imageLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'image',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
+    if (!Array.isArray(room.images)) room.images = []
+    if (room.images.length >= LIMITS.maxImages) {
+      socket.emit('notice', { kind: 'info', message: 'Too many images in this room.' })
+      return
+    }
+
+    const sanitized = sanitizeBoardImage(payload, LIMITS)
+    if (!sanitized) {
+      socket.emit('notice', { kind: 'info', message: 'Invalid image.' })
+      return
+    }
+    const entry = {
+      ...sanitized,
+      userId: socket.id,
+      userName: user.name,
+      userColor: user.color,
+      createdAt: new Date().toISOString(),
+    }
+    room.images.push(entry)
+    if (room.images.length > LIMITS.maxImages) {
+      room.images.shift()
+    }
+    persistence.scheduleSave(roomId, room)
+    io.to(roomId).emit('image:add', entry)
+  })
+
+  socket.on('image:update', (payload) => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
+    if (isViewOnly) return
+    const limit = imageLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'image',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
+    const sanitized = sanitizeBoardImageUpdate(payload)
+    if (!sanitized) return
+    const index = Array.isArray(room.images)
+      ? room.images.findIndex((img) => img?.id === sanitized.id)
+      : -1
+    if (index < 0) return
+    const current = room.images[index]
+    if (!current) return
+    room.images[index] = { ...current, x: sanitized.x, y: sanitized.y, w: sanitized.w, h: sanitized.h }
+    persistence.scheduleSave(roomId, room)
+    io.to(roomId).emit('image:update', sanitized)
+  })
+
+  socket.on('image:remove', (payload) => {
+    if (room.locked) {
+      socket.emit('notice', { kind: 'info', message: 'Room is locked.' })
+      return
+    }
+    if (isViewOnly) return
+    const limit = imageLimiter.check()
+    if (!limit.allowed) {
+      socket.emit('notice', {
+        kind: 'rate_limited',
+        scope: 'image',
+        retryAfterMs: limit.retryAfterMs,
+      })
+      return
+    }
+    const id = typeof payload?.id === 'string' ? payload.id.trim().slice(0, 80) : ''
+    if (!id) return
+    if (!Array.isArray(room.images)) return
+    const next = room.images.filter((img) => img?.id !== id)
+    if (next.length === room.images.length) return
+    room.images = next
+    persistence.scheduleSave(roomId, room)
+    io.to(roomId).emit('image:remove', { id })
   })
 
   socket.on('room:lock', () => {
@@ -855,6 +966,7 @@ io.on('connection', async (socket) => {
       return
     }
     room.strokes = []
+    room.images = []
     room.redoByUser.clear()
     persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('board:clear')

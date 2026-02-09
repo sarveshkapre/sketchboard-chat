@@ -5,12 +5,34 @@ import { snapshotRooms } from '../server/rooms-metrics.mjs'
 describe('rooms metrics', () => {
   it('snapshots rooms with counts', () => {
     const rooms = new Map()
-    rooms.set('b', { users: new Map([['u1', {}]]), strokes: [{}, {}], messages: [], locked: true })
-    rooms.set('a', { users: new Map(), strokes: [], messages: [{}, {}, {}], locked: false })
+    rooms.set('b', {
+      users: new Map([['u1', {}]]),
+      strokes: [{}, {}],
+      images: [{}, {}],
+      messages: [],
+      locked: true,
+    })
+    rooms.set('a', { users: new Map(), strokes: [], images: [], messages: [{}, {}, {}], locked: false })
 
     expect(snapshotRooms(rooms)).toEqual([
-      { roomId: 'b', usersCount: 1, strokesCount: 2, messagesCount: 0, locked: true, private: false },
-      { roomId: 'a', usersCount: 0, strokesCount: 0, messagesCount: 3, locked: false, private: false },
+      {
+        roomId: 'b',
+        usersCount: 1,
+        strokesCount: 2,
+        imagesCount: 2,
+        messagesCount: 0,
+        locked: true,
+        private: false,
+      },
+      {
+        roomId: 'a',
+        usersCount: 0,
+        strokesCount: 0,
+        imagesCount: 0,
+        messagesCount: 3,
+        locked: false,
+        private: false,
+      },
     ])
   })
 
@@ -30,6 +52,7 @@ describe('rooms metrics', () => {
         roomId: 'x',
         usersCount: 2,
         strokesCount: 0,
+        imagesCount: 0,
         messagesCount: 0,
         locked: false,
         private: false,

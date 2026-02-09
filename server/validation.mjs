@@ -13,6 +13,11 @@ function safeTrimString(value, maxLength) {
   return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed
 }
 
+function clampNumber(value, min, max) {
+  if (!isFiniteNumber(value)) return null
+  return Math.max(min, Math.min(max, value))
+}
+
 export function createId(prefix) {
   if (typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID()}`
@@ -122,4 +127,78 @@ export function sanitizeUserProfile(input) {
   if (!name && !color) return null
 
   return { name, color }
+}
+
+function sanitizeImageDataUrl(value, options) {
+  const maxBytes = Number.isFinite(options?.maxBytes) ? Math.max(1, Math.floor(options.maxBytes)) : 1_000_000
+  const allowed = Array.isArray(options?.allowedMime) ? options.allowedMime : []
+
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.length > maxBytes * 2.5) return null
+
+  // Intentionally only support base64 data URLs for raster images.
+  const match = trimmed.match(/^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i)
+  if (!match) return null
+  const mime = match[1].toLowerCase()
+  if (allowed.length > 0 && !allowed.includes(mime)) return null
+
+  const base64 = match[2]
+  const approxBytes = Math.floor((base64.length * 3) / 4)
+  if (!Number.isFinite(approxBytes) || approxBytes <= 0 || approxBytes > maxBytes) return null
+
+  let buffer
+  try {
+    buffer = Buffer.from(base64, 'base64')
+  } catch {
+    return null
+  }
+  if (!buffer || buffer.length <= 0 || buffer.length > maxBytes) return null
+
+  // Normalize to a canonical base64 string (avoids weird/invalid base64 inputs).
+  const normalized = buffer.toString('base64')
+  return { mime, bytes: buffer.length, dataUrl: `data:${mime};base64,${normalized}` }
+}
+
+export function sanitizeBoardImage(input, limits) {
+  if (!input || typeof input !== 'object') return null
+
+  const id = safeTrimString(input.id, 80) || createId('img')
+  const data = sanitizeImageDataUrl(input.dataUrl, {
+    maxBytes: Number.isFinite(limits?.maxImageBytes) ? limits.maxImageBytes : 1_000_000,
+    allowedMime: Array.isArray(limits?.allowedImageMime) ? limits.allowedImageMime : [],
+  })
+  if (!data) return null
+
+  const x = clampNumber(input.x, -50_000, 50_000)
+  const y = clampNumber(input.y, -50_000, 50_000)
+  const w = clampNumber(input.w, 8, 10_000)
+  const h = clampNumber(input.h, 8, 10_000)
+  if (x === null || y === null || w === null || h === null) return null
+
+  return {
+    id,
+    dataUrl: data.dataUrl,
+    mime: data.mime,
+    bytes: data.bytes,
+    x,
+    y,
+    w,
+    h,
+  }
+}
+
+export function sanitizeBoardImageUpdate(input) {
+  if (!input || typeof input !== 'object') return null
+  const id = safeTrimString(input.id, 80)
+  if (!id) return null
+
+  const x = clampNumber(input.x, -50_000, 50_000)
+  const y = clampNumber(input.y, -50_000, 50_000)
+  const w = clampNumber(input.w, 8, 10_000)
+  const h = clampNumber(input.h, 8, 10_000)
+  if (x === null || y === null || w === null || h === null) return null
+
+  return { id, x, y, w, h }
 }

@@ -25,6 +25,34 @@ function normalizeMessage(value) {
   return { id, text, userId, userName, userColor, createdAt }
 }
 
+function normalizeImage(value) {
+  if (!value || typeof value !== 'object') return null
+  const id = typeof value.id === 'string' ? value.id : ''
+  const dataUrl = typeof value.dataUrl === 'string' ? value.dataUrl : ''
+  const x = typeof value.x === 'number' && Number.isFinite(value.x) ? value.x : null
+  const y = typeof value.y === 'number' && Number.isFinite(value.y) ? value.y : null
+  const w = typeof value.w === 'number' && Number.isFinite(value.w) ? value.w : null
+  const h = typeof value.h === 'number' && Number.isFinite(value.h) ? value.h : null
+  if (!id || !dataUrl || x === null || y === null || w === null || h === null) return null
+
+  // Keep optional metadata when present.
+  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : ''
+  const userId = typeof value.userId === 'string' ? value.userId : ''
+  const userName = typeof value.userName === 'string' ? value.userName : ''
+  const userColor = typeof value.userColor === 'string' ? value.userColor : ''
+  const mime = typeof value.mime === 'string' ? value.mime : ''
+  const bytes = typeof value.bytes === 'number' && Number.isFinite(value.bytes) ? value.bytes : null
+
+  const image = { id, dataUrl, x, y, w, h }
+  if (createdAt) image.createdAt = createdAt
+  if (userId) image.userId = userId
+  if (userName) image.userName = userName
+  if (userColor) image.userColor = userColor
+  if (mime) image.mime = mime
+  if (bytes !== null) image.bytes = bytes
+  return image
+}
+
 async function pathExists(filePath) {
   try {
     await fs.access(filePath)
@@ -55,8 +83,9 @@ export function createRoomPersistence(options) {
   const enabled = Boolean(options?.enabled)
   const dir = String(options?.dir || '')
   const debounceMs = Number.isFinite(options?.debounceMs) ? Math.max(50, options.debounceMs) : 400
-  const limits = options?.limits || { maxStrokes: 1000, maxMessages: 200, maxAudit: 40 }
+  const limits = options?.limits || { maxStrokes: 1000, maxMessages: 200, maxAudit: 40, maxImages: 20 }
   const maxAudit = Number.isFinite(limits?.maxAudit) ? Math.max(1, limits.maxAudit) : 40
+  const maxImages = Number.isFinite(limits?.maxImages) ? Math.max(0, limits.maxImages) : 20
   const maxRooms = Number.isFinite(options?.maxRooms) ? Math.max(1, options.maxRooms) : null
   const maxAgeMs = Number.isFinite(options?.maxAgeMs) ? Math.max(1, options.maxAgeMs) : null
 
@@ -141,6 +170,7 @@ export function createRoomPersistence(options) {
       ? Math.max(0, Math.floor(parsed.inviteVersion))
       : 0
     const strokes = asArray(parsed.strokes).slice(-limits.maxStrokes)
+    const images = asArray(parsed.images).map(normalizeImage).filter(Boolean).slice(-maxImages)
     const messages = asArray(parsed.messages)
       .map(normalizeMessage)
       .filter(Boolean)
@@ -163,6 +193,7 @@ export function createRoomPersistence(options) {
 
     return {
       strokes,
+      images,
       messages,
       audit,
       rolesByKey,
@@ -181,12 +212,13 @@ export function createRoomPersistence(options) {
       ([key, role]) => typeof key === 'string' && typeof role === 'string',
     )
     const snapshot = {
-      version: 1,
+      version: 2,
       savedAt: new Date().toISOString(),
       locked: room?.locked === true,
       private: room?.private === true,
       inviteVersion: Number.isFinite(room?.inviteVersion) ? Math.max(0, Math.floor(room.inviteVersion)) : 0,
       strokes: asArray(room?.strokes).slice(-limits.maxStrokes),
+      images: asArray(room?.images).map(normalizeImage).filter(Boolean).slice(-maxImages),
       messages: asArray(room?.messages)
         .map(normalizeMessage)
         .filter(Boolean)

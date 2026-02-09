@@ -14,7 +14,7 @@ describe('persistence', () => {
         enabled: true,
         dir,
         debounceMs: 50,
-        limits: { maxStrokes: 2, maxMessages: 2, maxAudit: 2 },
+        limits: { maxStrokes: 2, maxMessages: 2, maxAudit: 2, maxImages: 2 },
       })
 
       const room = {
@@ -22,6 +22,11 @@ describe('persistence', () => {
         private: true,
         inviteVersion: 7,
         strokes: [{ id: 's1' }, { id: 's2' }, { id: 's3' }],
+        images: [
+          { id: 'i1', dataUrl: 'data:image/png;base64,AAA=', x: 1, y: 2, w: 3, h: 4 },
+          { id: 'i2', dataUrl: 'data:image/png;base64,BBB=', x: 2, y: 3, w: 4, h: 5 },
+          { id: 'i3', dataUrl: 'data:image/png;base64,CCC=', x: 3, y: 4, w: 5, h: 6 },
+        ],
         messages: [
           { id: 'm1', text: 'one', createdAt: '2026-01-01T00:00:00.000Z', reactions: { '👍': ['u1'] } },
           { id: 'm2', text: 'two', createdAt: '2026-01-01T00:00:01.000Z' },
@@ -44,6 +49,7 @@ describe('persistence', () => {
       const loaded = await persistence.load('room-1')
 
       expect(loaded?.strokes.map((s) => s.id)).toEqual(['s2', 's3'])
+      expect(loaded?.images.map((img) => img.id)).toEqual(['i2', 'i3'])
       expect(loaded?.messages.map((m) => m.id)).toEqual(['m2', 'm3'])
       expect(loaded?.messages[0]?.reactions).toBeUndefined()
       expect(loaded?.audit?.map((entry) => entry.id)).toEqual(['a2', 'a3'])
@@ -68,7 +74,7 @@ describe('persistence', () => {
         enabled: true,
         dir,
         debounceMs: 50,
-        limits: { maxStrokes: 2, maxMessages: 2, maxAudit: 2 },
+        limits: { maxStrokes: 2, maxMessages: 2, maxAudit: 2, maxImages: 2 },
         maxRooms: 2,
         maxAgeMs: 1000,
       })
