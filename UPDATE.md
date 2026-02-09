@@ -1,3 +1,15 @@
+# Update (2026-02-09)
+
+## Shipped
+- Reliability: When `PERSIST` is off, empty rooms are retained briefly in memory (configurable TTL) to avoid accidental board loss on quick reconnects.
+- Admin UX: Rooms list now shows `Locked` and `Invite-only` badges, with quick filters for those states.
+
+## Verified
+- `npm run check`
+- `npm run smoke`
+
+---
+
 # Update (2026-02-08)
 
 ## Shipped

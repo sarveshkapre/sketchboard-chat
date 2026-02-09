@@ -7,8 +7,6 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] (Selected) P1 Reliability: Retain empty-room state for a bounded window when `PERSIST` is off (config: `ROOM_IDLE_TTL_MS` + `ROOM_GC_INTERVAL_MS`), then GC to avoid unbounded in-memory growth.
-- [ ] (Selected) P2 Admin: Rooms list shows clear `Locked` and `Invite-only` badges, plus quick filters for those states.
 - [ ] P2 Performance: Reduce full-canvas redraw frequency by drawing committed strokes to an offscreen buffer and blitting.
 - [ ] P2 Feature: Image import on canvas (drag/drop + paste), with server-side size caps + validation + opt-in persistence.
 - [ ] P2 Feature: Stickers tool (emoji/stamps) that syncs as first-class board elements (not strokes).
@@ -18,6 +16,8 @@
 - [ ] P3 Feature: Voice rooms (push-to-talk).
 
 ## Implemented
+- [x] (2026-02-09) P1 Reliability: Retain empty-room state for a bounded window when `PERSIST` is off (config: `ROOM_IDLE_TTL_MS` + `ROOM_GC_INTERVAL_MS`), then GC to avoid unbounded in-memory growth. Evidence: `server/index.mjs`, `tests/room-idle-gc.test.ts`, `README.md`, `docs/PROJECT.md`.
+- [x] (2026-02-09) P2 Admin: Rooms list shows clear `Locked` and `Invite-only` badges, plus quick filters for those states. Evidence: `src/App.tsx`, `src/App.css`.
 - [x] (2026-02-09) P2 DX: Added `npm run smoke` and switched CI smoke to use it. Evidence: `scripts/smoke.mjs`, `package.json`, `.github/workflows/ci.yml`.
 - [x] (2026-02-09) P1 Security: Added optional socket access guard via `AUTH_TOKEN`, with a client prompt/reconnect flow. Evidence: `server/index.mjs`, `src/authStorage.ts`, `src/App.tsx`, `tests/socket-auth-guard.test.ts`.
 - [x] (2026-02-09) P2 UX: When rejected from an invite-only room, show a reconnect UI to paste an invite link/token. Evidence: `src/App.tsx`, `src/App.css`.
@@ -46,6 +46,7 @@
 - A lightweight deployment guard can be implemented as an optional Socket.IO handshake token (`AUTH_TOKEN`) without changing the HTTP healthcheck.
 - Market baseline: realtime whiteboards typically ship share links and fine-grained access modes (view/comment/edit), with optional expiring links/passwords for public sharing. Sources: `https://help.miro.com/hc/en-us/articles/360017730893-Invite-people-to-collaborate-on-your-board`, `https://help.miro.com/hc/en-us/articles/360017572454-Share-boards-and-projects`.
 - Collaboration baseline: tools like Excalidraw and tldraw emphasize lightweight "share a link to collaborate" flows. Sources: `https://docs.excalidraw.com/docs/@excalidraw/excalidraw/`, `https://tldraw.dev/`.
+- Image import baseline: mainstream whiteboards support drag/drop and paste-from-clipboard images directly onto the canvas, usually with basic resizing and layer controls. Sources: `https://help.miro.com/hc/en-us/articles/360017730773-Upload-files-to-a-board`, `https://help.figma.com/hc/en-us/articles/4404878935693-Add-images-to-FigJam`, `https://tldraw.dev/blog/flip`.
 
 ## Notes
 - This file is maintained by the autonomous clone loop.

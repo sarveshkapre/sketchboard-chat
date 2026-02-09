@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+- When `PERSIST` is off, empty rooms are retained briefly in memory (configurable TTL) to avoid accidental board loss on quick reconnects.
+- Rooms list now shows `Locked` and `Invite-only` badges, with quick filters for those states.
 - Room-based sessions via `?room=...` (isolated board state + presence + chat).
 - Clean room URLs via `/r/<room>` (shareable links).
 - Hardened server input handling (CORS origin parsing + validation/caps for strokes, chat, and cursors).
