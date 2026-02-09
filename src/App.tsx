@@ -140,6 +140,24 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   ctx.restore()
 }
 
+function drawStrokeSegment(ctx: CanvasRenderingContext2D, stroke: Stroke) {
+  const count = stroke.points.length
+  if (count < 2) return
+  const from = stroke.points[count - 2]
+  const to = stroke.points[count - 1]
+
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = stroke.tool === 'eraser' ? '#0b0b13' : stroke.color
+  ctx.lineWidth = stroke.size
+  ctx.beginPath()
+  ctx.moveTo(from.x, from.y)
+  ctx.lineTo(to.x, to.y)
+  ctx.stroke()
+  ctx.restore()
+}
+
 function drawAll(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
   ctx.fillStyle = '#0b0b13'
@@ -931,7 +949,7 @@ function App() {
     if (drawingRef.current.points.length >= LIMITS.maxStrokePoints) return
     drawingRef.current.points.push(point)
     const ctx = canvas.getContext('2d')
-    if (ctx) drawStroke(ctx, drawingRef.current)
+    if (ctx) drawStrokeSegment(ctx, drawingRef.current)
   }
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
