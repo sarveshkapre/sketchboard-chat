@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
+import { io } from 'socket.io-client'
 
 function waitForLine(stream, pattern, timeoutMs) {
   return new Promise((resolve, reject) => {
@@ -24,6 +25,94 @@ function waitForLine(stream, pattern, timeoutMs) {
 
     stream.on('data', onData)
   })
+}
+
+function waitForEvent(socket, eventName, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup()
+      reject(new Error(`Timed out waiting for socket event: ${eventName}`))
+    }, timeoutMs)
+
+    function onEvent(payload) {
+      cleanup()
+      resolve(payload)
+    }
+
+    function cleanup() {
+      clearTimeout(timeout)
+      socket.off(eventName, onEvent)
+    }
+
+    socket.on(eventName, onEvent)
+  })
+}
+
+function makeKey(prefix) {
+  return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now().toString(16)}`
+}
+
+async function runRoomIsolationSmoke(serverUrl) {
+  const roomA = `smoke-a-${Date.now().toString(16)}`
+  const roomB = `smoke-b-${Date.now().toString(16)}`
+
+  const a1 = io(serverUrl, {
+    transports: ['websocket'],
+    reconnection: false,
+    auth: { room: roomA, mode: 'edit', userKey: makeKey('a1') },
+  })
+  const a2 = io(serverUrl, {
+    transports: ['websocket'],
+    reconnection: false,
+    auth: { room: roomA, mode: 'edit', userKey: makeKey('a2') },
+  })
+  const b1 = io(serverUrl, {
+    transports: ['websocket'],
+    reconnection: false,
+    auth: { room: roomB, mode: 'edit', userKey: makeKey('b1') },
+  })
+
+  try {
+    await Promise.all([waitForEvent(a1, 'init', 4000), waitForEvent(a2, 'init', 4000), waitForEvent(b1, 'init', 4000)])
+
+    let leakedStroke = false
+    let leakedChat = false
+
+    b1.on('stroke:add', () => {
+      leakedStroke = true
+    })
+    b1.on('chat:message', () => {
+      leakedChat = true
+    })
+
+    const strokePromise = waitForEvent(a2, 'stroke:add', 1500)
+    a1.emit('stroke:add', {
+      id: 'smoke-stroke',
+      color: '#4d96ff',
+      size: 4,
+      tool: 'pen',
+      points: [
+        { x: 10, y: 10 },
+        { x: 20, y: 20 },
+      ],
+    })
+    await strokePromise
+
+    // Give the server a brief window to incorrectly deliver cross-room events.
+    await new Promise((r) => setTimeout(r, 300))
+    if (leakedStroke) throw new Error('Room isolation failed: stroke leaked to another room')
+
+    const chatPromise = waitForEvent(a2, 'chat:message', 1500)
+    a1.emit('chat:message', { id: 'smoke-msg', text: 'smoke hello' })
+    await chatPromise
+
+    await new Promise((r) => setTimeout(r, 300))
+    if (leakedChat) throw new Error('Room isolation failed: chat leaked to another room')
+  } finally {
+    a1.disconnect()
+    a2.disconnect()
+    b1.disconnect()
+  }
 }
 
 async function main() {
@@ -75,6 +164,10 @@ async function main() {
     }
   }
 
+  if (!lastError) {
+    await runRoomIsolationSmoke(`http://localhost:${port}`)
+  }
+
   // Always best-effort stop the server.
   if (!exited) {
     child.kill('SIGTERM')
@@ -93,4 +186,3 @@ main().catch((err) => {
   process.stderr.write(`${err instanceof Error ? err.stack : String(err)}\n`)
   process.exitCode = 1
 })
-
