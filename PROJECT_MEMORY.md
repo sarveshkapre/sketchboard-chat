@@ -22,6 +22,7 @@
 - 2026-02-09 | Add `npm run smoke` and use it in CI. | Keeps local and CI healthchecks consistent and reduces fragile inline bash in workflows. | `npm run smoke`; GitHub Actions run `CI` | a041cd4 | high | trusted
 - 2026-02-09 | Retain empty rooms for a bounded TTL when persistence is off (evict via periodic GC), but evict immediately when `PERSIST=1`. | Prevents accidental board/chat loss on quick reconnects while keeping memory bounded in long-running servers. | `tests/room-idle-gc.test.ts`; `npm run check` | 61a57e0 | high | trusted
 - 2026-02-09 | Add admin rooms list badges and quick filters for `Locked` + `Invite-only`. | Makes moderation triage faster and improves parity with baseline whiteboard admin UX. | `npm run check` | 2cf6326 | high | trusted
+- 2026-02-10 | Add `PERSIST_MAX_BYTES` cap and deterministic trimming for per-room persisted snapshots. | Prevents oversized room files (especially from embedded base64 images) and reduces disk abuse risk when `PERSIST=1`, while keeping persistence on by default. | `tests/persistence.test.ts`; `npm run check`; `npm run smoke` | 3831c66 | high | trusted
 
 ## Mistakes And Fixes
 - Template: YYYY-MM-DD | Issue | Root cause | Fix | Prevention rule | Commit | Confidence
@@ -30,13 +31,15 @@
 ## Known Risks
 
 ## Next Prioritized Tasks
-- P2 Feature: stickers tool (emoji/stamps) as first-class board elements.
 - P2 UX: basic zoom/pan with stable cursor coordinates.
-- P3 Reliability: server-side cap for total bytes of persisted room state.
+- P2 Feature: stickers tool (emoji/stamps) as first-class board elements.
+- P2 Feature: text tool (place/edit/move short labels) as first-class elements.
 - P3 UX: mobile/touch drawing polish (palm rejection, toolbar sizing, scroll/zoom ergonomics).
 
 ## Verification Evidence
 - Template: YYYY-MM-DD | Command | Key output | Status (pass/fail)
+- 2026-02-10 | `npm run check` | lint+typecheck+tests+build all passed (53 tests) | pass
+- 2026-02-10 | `npm run smoke` | `{\"status\":\"ok\"}` | pass
 - 2026-02-09 | `npm run check` | lint+typecheck+tests+build all passed | pass
 - 2026-02-09 | `npm audit --audit-level=high` | `found 0 vulnerabilities` | pass
 - 2026-02-09 | `PORT=4101 INVITE_SECRET=local-smoke-secret node server/index.mjs` + `curl -fsS http://localhost:4101/health` | `{\"status\":\"ok\"}` | pass
