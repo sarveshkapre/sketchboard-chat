@@ -63,11 +63,15 @@ async function pathExists(filePath) {
 }
 
 async function atomicWriteJson(filePath, data) {
+  await atomicWriteText(filePath, `${JSON.stringify(data, null, 2)}\n`)
+}
+
+async function atomicWriteText(filePath, text) {
   const dir = path.dirname(filePath)
   await fs.mkdir(dir, { recursive: true })
 
   const tmpPath = `${filePath}.tmp`
-  await fs.writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+  await fs.writeFile(tmpPath, text, 'utf8')
   await fs.rename(tmpPath, filePath)
 }
 
@@ -86,6 +90,10 @@ export function createRoomPersistence(options) {
   const limits = options?.limits || { maxStrokes: 1000, maxMessages: 200, maxAudit: 40, maxImages: 20 }
   const maxAudit = Number.isFinite(limits?.maxAudit) ? Math.max(1, limits.maxAudit) : 40
   const maxImages = Number.isFinite(limits?.maxImages) ? Math.max(0, limits.maxImages) : 20
+  const maxBytes =
+    Number.isFinite(options?.maxBytes) && options.maxBytes > 0
+      ? Math.max(1024, Math.floor(options.maxBytes))
+      : null
   const maxRooms = Number.isFinite(options?.maxRooms) ? Math.max(1, options.maxRooms) : null
   const maxAgeMs = Number.isFinite(options?.maxAgeMs) ? Math.max(1, options.maxAgeMs) : null
 
@@ -205,6 +213,87 @@ export function createRoomPersistence(options) {
     }
   }
 
+  function serializeSnapshot(snapshot) {
+    return `${JSON.stringify(snapshot, null, 2)}\n`
+  }
+
+  function byteLengthUtf8(value) {
+    return Buffer.byteLength(value, 'utf8')
+  }
+
+  function trimSnapshotToMaxBytes(snapshot) {
+    if (!maxBytes) return { snapshot, serialized: serializeSnapshot(snapshot), trimmed: null }
+
+    let serialized = serializeSnapshot(snapshot)
+    if (byteLengthUtf8(serialized) <= maxBytes) {
+      return { snapshot, serialized, trimmed: null }
+    }
+
+    const trimmed = { maxBytes, droppedImages: 0, droppedStrokes: 0, droppedMessages: 0, droppedAudit: 0 }
+
+    function dropFront(field, counterKey, chunk) {
+      const arr = snapshot[field]
+      if (!Array.isArray(arr) || arr.length === 0) return false
+      const n = Math.max(1, Math.min(arr.length, chunk))
+      arr.splice(0, n)
+      trimmed[counterKey] += n
+      return true
+    }
+
+    // Prefer dropping the heaviest content first to keep metadata stable.
+    // Use chunked drops to avoid O(n^2) stringify loops on large stroke histories.
+    for (let guard = 0; guard < 200; guard += 1) {
+      serialized = serializeSnapshot(snapshot)
+      if (byteLengthUtf8(serialized) <= maxBytes) break
+
+      // Images usually dominate size (base64 data URLs).
+      if (dropFront('images', 'droppedImages', 1)) continue
+
+      const strokesChunk = Array.isArray(snapshot.strokes) ? Math.max(10, Math.floor(snapshot.strokes.length / 10)) : 10
+      if (dropFront('strokes', 'droppedStrokes', strokesChunk)) continue
+
+      const messagesChunk = Array.isArray(snapshot.messages)
+        ? Math.max(5, Math.floor(snapshot.messages.length / 10))
+        : 5
+      if (dropFront('messages', 'droppedMessages', messagesChunk)) continue
+
+      if (dropFront('audit', 'droppedAudit', 5)) continue
+
+      // Nothing left to drop; fall back to a minimal snapshot.
+      snapshot.strokes = []
+      snapshot.images = []
+      snapshot.messages = []
+      snapshot.audit = []
+      snapshot.rolesByKey = []
+      snapshot.ownerKey = null
+      snapshot.pinnedId = null
+      break
+    }
+
+    serialized = serializeSnapshot(snapshot)
+    if (byteLengthUtf8(serialized) > maxBytes) {
+      // Last resort: keep only the smallest required fields.
+      const minimal = {
+        version: snapshot.version,
+        savedAt: snapshot.savedAt,
+        locked: snapshot.locked,
+        private: snapshot.private,
+        inviteVersion: snapshot.inviteVersion,
+      }
+      snapshot = minimal
+      serialized = serializeSnapshot(snapshot)
+    }
+
+    // Persist a small hint for debugging; load() ignores unknown fields.
+    snapshot.truncated = trimmed
+    serialized = serializeSnapshot(snapshot)
+    if (byteLengthUtf8(serialized) > maxBytes) {
+      delete snapshot.truncated
+      serialized = serializeSnapshot(snapshot)
+    }
+    return { snapshot, serialized, trimmed }
+  }
+
   async function saveNow(roomId, room) {
     if (!enabled) return
     const filePath = roomFile(roomId)
@@ -228,7 +317,19 @@ export function createRoomPersistence(options) {
       ownerKey: typeof room?.ownerKey === 'string' ? room.ownerKey : null,
       pinnedId: typeof room?.pinnedId === 'string' ? room.pinnedId : null,
     }
-    await atomicWriteJson(filePath, snapshot)
+
+    const result = trimSnapshotToMaxBytes(snapshot)
+    if (result.trimmed) {
+      const finalBytes = byteLengthUtf8(result.serialized)
+      process.stderr.write(
+        `PERSIST WARNING: room "${roomId}" snapshot exceeded maxBytes=${result.trimmed.maxBytes}; ` +
+          `dropped images=${result.trimmed.droppedImages} strokes=${result.trimmed.droppedStrokes} ` +
+          `messages=${result.trimmed.droppedMessages} audit=${result.trimmed.droppedAudit}; ` +
+          `finalBytes=${finalBytes}\n`,
+      )
+    }
+
+    await atomicWriteText(filePath, result.serialized)
     scheduleCleanup()
   }
 

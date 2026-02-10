@@ -1,3 +1,14 @@
+# Update (2026-02-10)
+
+## Shipped
+- Reliability: Added `PERSIST_MAX_BYTES` to cap per-room persisted state file size; oversized snapshots are trimmed deterministically to prevent disk abuse when `PERSIST=1`.
+
+## Verified
+- `npm run check`
+- `npm run smoke`
+
+---
+
 # Update (2026-02-09)
 
 ## Shipped

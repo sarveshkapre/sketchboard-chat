@@ -1,6 +1,6 @@
 import os from 'node:os'
 import path from 'node:path'
-import { mkdtemp, rm, utimes } from 'node:fs/promises'
+import { mkdtemp, rm, stat, utimes } from 'node:fs/promises'
 
 import { describe, expect, it } from 'vitest'
 
@@ -101,6 +101,56 @@ describe('persistence', () => {
       expect(loaded1).toBe(null) // TTL should remove it
       expect(loaded2).not.toBe(null)
       expect(loaded3).not.toBe(null)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('caps persisted room state by max bytes', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'sketchboard-chat-'))
+    try {
+      const maxBytes = 2000
+      const persistence = createRoomPersistence({
+        enabled: true,
+        dir,
+        debounceMs: 50,
+        maxBytes,
+        limits: { maxStrokes: 1000, maxMessages: 200, maxAudit: 40, maxImages: 20 },
+      })
+
+      const bigDataUrl = `data:image/png;base64,${'A'.repeat(4000)}`
+      const room = {
+        locked: true,
+        private: true,
+        inviteVersion: 1,
+        strokes: Array.from({ length: 50 }, (_, i) => ({ id: `s${i}` })),
+        images: [
+          { id: 'i1', dataUrl: bigDataUrl, x: 1, y: 2, w: 3, h: 4 },
+          { id: 'i2', dataUrl: bigDataUrl, x: 2, y: 3, w: 4, h: 5 },
+        ],
+        messages: Array.from({ length: 20 }, (_, i) => ({
+          id: `m${i}`,
+          text: `msg-${i}`,
+          createdAt: `2026-01-01T00:00:${String(i).padStart(2, '0')}.000Z`,
+        })),
+        audit: Array.from({ length: 10 }, (_, i) => ({
+          id: `a${i}`,
+          at: `2026-01-01T00:00:${String(i).padStart(2, '0')}.000Z`,
+          text: `audit-${i}`,
+        })),
+      }
+
+      await persistence.saveNow('room-1', room)
+
+      const filePath = path.join(dir, 'room-room-1.json')
+      const info = await stat(filePath)
+      expect(info.size).toBeLessThanOrEqual(maxBytes)
+
+      const loaded = await persistence.load('room-1')
+      expect(loaded?.locked).toBe(true)
+      expect(loaded?.private).toBe(true)
+      expect(loaded?.inviteVersion).toBe(1)
+      expect(Array.isArray(loaded?.images) ? loaded.images.length : 0).toBe(0)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- Added `PERSIST_MAX_BYTES` to cap per-room persisted state file size (prevents oversized disk writes when `PERSIST=1`).
 - Added synced image import (paste/drag/drop/file picker), plus a Select tool to move/delete images.
 - Admin rooms panel now shows image counts per room.
 - When `PERSIST` is off, empty rooms are retained briefly in memory (configurable TTL) to avoid accidental board loss on quick reconnects.

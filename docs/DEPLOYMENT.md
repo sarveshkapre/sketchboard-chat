@@ -17,6 +17,7 @@
   - Keep this separate from `AUTH_TOKEN`.
 - `PERSIST`: set `1` to persist room state to disk
 - `PERSIST_DIR`: directory for persisted room files (default `./data`)
+- `PERSIST_MAX_BYTES`: max bytes per persisted room file (default `10000000`); prevents oversized state files
 - `PERSIST_MAX_ROOMS`: optional cap on persisted room files
 - `PERSIST_TTL_DAYS`: optional TTL cleanup window
 

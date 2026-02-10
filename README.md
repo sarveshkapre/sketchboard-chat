@@ -38,6 +38,7 @@ View-only example: `http://localhost:5173/r/team-1?mode=view`
 - `PERSIST` (server): set `1` to persist strokes/messages to disk (default off)
 - `PERSIST_DIR` (server): persistence directory (default `./data`)
 - `PERSIST_DEBOUNCE_MS` (server): debounce before writing to disk (default `400`)
+- `PERSIST_MAX_BYTES` (server): max bytes per persisted room file (default `10000000`); set `0` to disable (not recommended)
 - `ROOM_IDLE_TTL_MS` (server): how long to keep an empty room in memory before eviction when `PERSIST` is off (default `900000` = 15 minutes)
 - `ROOM_GC_INTERVAL_MS` (server): how often to sweep and evict idle rooms (default `30000` = 30 seconds)
 - `PERSIST_MAX_ROOMS` (server): optional cap on number of room files kept (cleanup runs in background)

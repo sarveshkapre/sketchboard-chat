@@ -7,14 +7,18 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
+- [ ] P2 UX: Basic zoom/pan (trackpad pinch-to-zoom + two-finger pan), with stable cursor coordinates and crisp rendering.
 - [ ] P2 Feature: Stickers tool (emoji/stamps) that syncs as first-class board elements (not strokes).
-- [ ] P2 UX: Basic zoom/pan (trackpad + touch) with stable cursor coordinates and crisp rendering.
 - [ ] P2 Feature: Text tool (place/edit/move short labels) as first-class elements.
 - [ ] P3 UX: Mobile/touch drawing polish (palm rejection, better toolbar sizing, scroll/zoom ergonomics).
-- [ ] P3 Reliability: Add server-side caps for total bytes of persisted room state (strokes + chat + images) to prevent disk abuse when `PERSIST=1`.
+- [ ] P3 Reliability: Add per-room total image bytes cap (in-memory + persisted) to prevent worst-case memory growth from many large data URLs.
+- [ ] P3 Observability: Show estimated room state bytes in admin rooms list (`GET /api/rooms`) and UI to support abuse triage.
+- [ ] P3 Security: Add a simple Content-Security-Policy header for the static client in production builds.
+- [ ] P3 DX: Add a minimal Playwright smoke that opens two tabs, joins a room, draws, and verifies isolation.
 - [ ] P3 Feature: Voice rooms (push-to-talk).
 
 ## Implemented
+- [x] (2026-02-10) P1 Reliability: Cap per-room persisted state file size via `PERSIST_MAX_BYTES`; oversized snapshots are trimmed deterministically before writing to disk. Evidence: `server/persistence.mjs`, `server/index.mjs`, `tests/persistence.test.ts`, `README.md`, `docs/PROJECT.md`, `docs/DEPLOYMENT.md`; `npm run check`, `npm run smoke`.
 - [x] (2026-02-09) P1 Feature: Image import (paste/drag/drop/file picker), synced per room with server-side validation/caps and persistence support (SVG export embeds images; admin rooms list shows image counts). Evidence: `server/index.mjs`, `server/validation.mjs`, `server/persistence.mjs`, `server/rooms-metrics.mjs`, `src/App.tsx`, `src/svg.ts`, `src/adminRooms.ts`, `tests/socket-images.test.ts`, `tests/server-validation.test.ts`, `tests/persistence.test.ts`, `tests/rooms-metrics.test.ts`, `tests/svg.test.ts`; `npm run check`.
 - [x] (2026-02-09) P1 UX: Select tool to move/delete imported images (includes keyboard delete/backspace). Evidence: `src/App.tsx`; `npm run check`.
 - [x] (2026-02-09) P2 Performance: Offscreen layers for committed strokes + background/images; compositing avoids full redraws during normal drawing. Evidence: `src/App.tsx`; `npm run check`.
@@ -53,6 +57,7 @@
 - Collaboration baseline: tools like Excalidraw and tldraw emphasize lightweight "share a link to collaborate" flows. Sources: `https://docs.excalidraw.com/docs/@excalidraw/excalidraw/`, `https://tldraw.dev/`.
 - Image import baseline: mainstream whiteboards support drag/drop and paste-from-clipboard images directly onto the canvas, usually with basic resizing and layer controls. Sources: `https://help.miro.com/hc/en-us/articles/360017730773-Upload-files-to-a-board`, `https://help.figma.com/hc/en-us/articles/4404878935693-Add-images-to-FigJam`, `https://tldraw.dev/blog/flip`.
 - Stickers/stamps baseline: modern whiteboards include lightweight stamp/sticker tools (often with quick keyboard entry) for low-friction feedback and annotation. Sources: `https://help.figma.com/hc/en-us/articles/360047238133-Use-stamps-in-FigJam`, `https://miro.com/es/help/miro-reactions-and-stickers/`.
+- Navigation baseline: whiteboards typically support trackpad pinch-to-zoom and two-finger pan; many also support spacebar-held "hand tool" panning and mousewheel zoom. Sources: `https://help.figma.com/hc/en-us/articles/1500004414582-Pan-and-zoom-in-FigJam`, `https://help.miro.com/hc/en-us/articles/360017731053-Using-Miro-with-a-mouse-trackpad-or-touchscreen`.
 
 ## Notes
 - This file is maintained by the autonomous clone loop.
