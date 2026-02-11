@@ -9,6 +9,10 @@
 
 ## Recent Decisions
 - Template: YYYY-MM-DD | Decision | Why | Evidence (tests/logs) | Commit | Confidence (high/medium/low) | Trust (trusted/untrusted)
+- 2026-02-11 | Enforce aggregate room image bytes (`ROOM_MAX_IMAGE_BYTES`) in-memory and normalize hydrated room images to byte limits. | Per-image caps alone do not bound total room memory under many uploads; aggregate enforcement is needed to keep memory predictable. | `tests/socket-images.test.ts`; `npm run check`; `npm run smoke` | 7a27e58 | high | trusted
+- 2026-02-11 | Extend room metrics/admin UI with `imagesBytes` and `stateBytesEstimate`. | Operators need byte-level triage signals to identify abusive rooms quickly and decide when to intervene. | `tests/rooms-metrics.test.ts`; `tests/utils.test.ts`; `npm run check` | 7a27e58 | high | trusted
+- 2026-02-11 | Add default production CSP header with optional override (`CSP_HEADER`). | Baseline browser hardening reduces injection blast radius and is expected in production deployments. | `tests/csp-header.test.ts`; `npm run check`; GitHub Actions run `21897025725` | 7a27e58 | high | trusted
+- 2026-02-11 | Prioritize zoom/pan and first-class text/stickers as next PMF work after reliability hardening. | Bounded market scan shows these are baseline whiteboard expectations and highest user-visible capability gaps. | `CLONE_FEATURES.md`; `https://docs.excalidraw.com/docs/introduction/features`; `https://tldraw.dev/examples/editor-api/camera/follow-camera`; `https://plus.excalidraw.com/blog/excalidraw-plus-whiteboard` | 7a27e58 | medium | untrusted
 - 2026-02-09 | Add synced board images (image:add/update/remove) with server-side raster-only validation, rate limits, and persistence. | Image import is a baseline whiteboard expectation; server-side caps/validation are required to keep memory/disk bounded and avoid SVG/script injection. | `tests/socket-images.test.ts`; `tests/server-validation.test.ts`; `tests/persistence.test.ts`; `npm run check` | 7b31252 | high | trusted
 - 2026-02-09 | Add client image import (paste/drag/drop/file picker) plus Select tool (move/delete) and SVG export embedding images. | Improves PMF for sketchboard chat by enabling annotation over screenshots/mockups; Select tool keeps interactions predictable without interfering with drawing. | `npm run check` | 6471fd8 | high | trusted
 - 2026-02-09 | Composite rendering via offscreen layers (background/images + committed strokes). | Reduces redraw work and makes image moves/resizes feasible without re-stroking all paths each frame. | `npm run check` | 6471fd8 | medium | trusted
@@ -26,18 +30,23 @@
 
 ## Mistakes And Fixes
 - Template: YYYY-MM-DD | Issue | Root cause | Fix | Prevention rule | Commit | Confidence
+- 2026-02-11 | Initial room byte-cap config floor blocked small-limit validation and made policy less tunable. | `ROOM_MAX_IMAGE_BYTES` minimum clamp was set too high for realistic small-room configs/testing. | Lowered minimum clamp and added socket integration coverage for aggregate room byte limit rejection. | Any new limit env var should ship with at least one boundary-value integration test (`below/at/above`) before merge. | 7a27e58 | high
 - 2026-02-09 | Invite token verification always failed. | Regex incorrectly matched a literal backslash before the dot separator. | Fix regex + add unit/integration tests for create/verify and invite-only join rejection. | Add a unit test for any security-critical token format; add at least one socket-level integration test for end-to-end enforcement. | 87004af | high
 
 ## Known Risks
 
 ## Next Prioritized Tasks
-- P2 UX: basic zoom/pan with stable cursor coordinates.
-- P2 Feature: stickers tool (emoji/stamps) as first-class board elements.
-- P2 Feature: text tool (place/edit/move short labels) as first-class elements.
-- P3 UX: mobile/touch drawing polish (palm rejection, toolbar sizing, scroll/zoom ergonomics).
+- P1 UX: basic zoom/pan with stable board coordinates and predictable cursor/pointer behavior.
+- P1 Feature: text tool (create/edit/move short labels) as first-class elements.
+- P1 Feature: stickers tool (emoji/stamps) as first-class elements.
+- P2 UX: mobile/touch drawing polish (toolbar sizing, gesture ergonomics, palm rejection).
 
 ## Verification Evidence
 - Template: YYYY-MM-DD | Command | Key output | Status (pass/fail)
+- 2026-02-11 | `npm test -- tests/socket-images.test.ts tests/csp-header.test.ts tests/rooms-metrics.test.ts tests/utils.test.ts` | 8 tests passed | pass
+- 2026-02-11 | `npm run check` | lint+typecheck+tests+build all passed (56 tests) | pass
+- 2026-02-11 | `npm run smoke` | `{\"status\":\"ok\"}` | pass
+- 2026-02-11 | `gh run watch 21897025725 --exit-status` | `build` + `codeql` jobs passed | pass
 - 2026-02-10 | `npm run check` | lint+typecheck+tests+build all passed (53 tests) | pass
 - 2026-02-10 | `npm run smoke` | `{\"status\":\"ok\"}` | pass
 - 2026-02-09 | `npm run check` | lint+typecheck+tests+build all passed | pass
