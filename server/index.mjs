@@ -57,6 +57,30 @@ const corsOrigin = parseCorsOrigin(process.env.CORS_ORIGIN)
   }
 }
 
+function getCspHeaderValue() {
+  const custom = process.env.CSP_HEADER
+  if (typeof custom === 'string' && custom.trim()) return custom.trim()
+  if (process.env.NODE_ENV !== 'production') return null
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "img-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
+    "connect-src 'self' ws: wss:",
+  ].join('; ')
+}
+
+const cspHeaderValue = getCspHeaderValue()
+if (cspHeaderValue) {
+  app.use((_req, res, next) => {
+    res.setHeader('Content-Security-Policy', cspHeaderValue)
+    next()
+  })
+}
+
 const io = new Server(server, {
   cors: {
     origin: corsOrigin,
@@ -80,8 +104,25 @@ function parseMsEnv(name, fallbackMs, options) {
   return next
 }
 
+function parseBytesEnv(name, fallbackBytes, options) {
+  const raw = process.env[name]
+  if (typeof raw !== 'string' || !raw.trim()) return fallbackBytes
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) return fallbackBytes
+  const min = Number.isFinite(options?.min) ? options.min : null
+  const max = Number.isFinite(options?.max) ? options.max : null
+  let next = Math.floor(parsed)
+  if (min !== null) next = Math.max(min, next)
+  if (max !== null) next = Math.min(max, next)
+  return next
+}
+
 const ROOM_IDLE_TTL_MS = parseMsEnv('ROOM_IDLE_TTL_MS', 15 * 60 * 1000, { min: 0, max: 24 * 60 * 60 * 1000 })
 const ROOM_GC_INTERVAL_MS = parseMsEnv('ROOM_GC_INTERVAL_MS', 30_000, { min: 1000, max: 5 * 60 * 1000 })
+const ROOM_MAX_IMAGE_BYTES = parseBytesEnv('ROOM_MAX_IMAGE_BYTES', 8_000_000, {
+  min: 1_000,
+  max: 200_000_000,
+})
 
 const LIMITS = {
   maxStrokePoints: 2000,
@@ -90,6 +131,7 @@ const LIMITS = {
   maxStrokes: 1000,
   maxImages: 20,
   maxImageBytes: 1_000_000,
+  maxRoomImageBytes: ROOM_MAX_IMAGE_BYTES,
   allowedImageMime: ['image/png', 'image/jpeg', 'image/webp'],
 }
 
@@ -180,10 +222,52 @@ function toPublicUser(user) {
   return publicUser
 }
 
+function estimateDataUrlBytes(dataUrl) {
+  if (typeof dataUrl !== 'string') return 0
+  const match = dataUrl.match(/^data:image\/[a-z0-9.+-]+;base64,([A-Za-z0-9+/=]+)$/i)
+  if (!match) return 0
+  return Math.max(0, Math.floor((match[1].length * 3) / 4))
+}
+
+function getImageBytes(image) {
+  const raw = image?.bytes
+  if (Number.isFinite(raw) && raw > 0) return Math.floor(raw)
+  return estimateDataUrlBytes(image?.dataUrl)
+}
+
+function estimateRoomImageBytes(images) {
+  if (!Array.isArray(images)) return 0
+  let total = 0
+  for (const image of images) {
+    total += getImageBytes(image)
+  }
+  return Math.max(0, total)
+}
+
+function normalizeRoomImages(images) {
+  const list = Array.isArray(images) ? images : []
+  const maxImages = Math.max(1, LIMITS.maxImages)
+  const next = []
+  for (const image of list.slice(-maxImages)) {
+    const bytes = getImageBytes(image)
+    if (!Number.isFinite(bytes) || bytes <= 0 || bytes > LIMITS.maxImageBytes) continue
+    next.push({ ...image, bytes })
+  }
+  let totalBytes = estimateRoomImageBytes(next)
+
+  while (next.length > 0 && totalBytes > LIMITS.maxRoomImageBytes) {
+    const removed = next.shift()
+    totalBytes -= getImageBytes(removed)
+  }
+
+  return { images: next, totalBytes: Math.max(0, totalBytes) }
+}
+
 function createRoomState() {
   return {
     strokes: [],
     images: [],
+    imageBytes: 0,
     messages: [],
     audit: [],
     pinnedId: null,
@@ -211,7 +295,9 @@ function getRoom(roomId) {
         if (loaded) {
           created.strokes = loaded.strokes
           if (Array.isArray(loaded.images)) {
-            created.images = loaded.images
+            const normalized = normalizeRoomImages(loaded.images)
+            created.images = normalized.images
+            created.imageBytes = normalized.totalBytes
           }
           created.messages = loaded.messages
           if (Array.isArray(loaded.audit)) {
@@ -635,6 +721,9 @@ io.on('connection', async (socket) => {
       return
     }
     if (!Array.isArray(room.images)) room.images = []
+    if (!Number.isFinite(room.imageBytes)) {
+      room.imageBytes = estimateRoomImageBytes(room.images)
+    }
     if (room.images.length >= LIMITS.maxImages) {
       socket.emit('notice', { kind: 'info', message: 'Too many images in this room.' })
       return
@@ -645,6 +734,14 @@ io.on('connection', async (socket) => {
       socket.emit('notice', { kind: 'info', message: 'Invalid image.' })
       return
     }
+    const nextImageBytes = Math.max(0, Math.floor(room.imageBytes + sanitized.bytes))
+    if (nextImageBytes > LIMITS.maxRoomImageBytes) {
+      socket.emit('notice', {
+        kind: 'info',
+        message: 'Room image storage limit reached. Remove an image before adding another.',
+      })
+      return
+    }
     const entry = {
       ...sanitized,
       userId: socket.id,
@@ -653,8 +750,10 @@ io.on('connection', async (socket) => {
       createdAt: new Date().toISOString(),
     }
     room.images.push(entry)
+    room.imageBytes = nextImageBytes
     if (room.images.length > LIMITS.maxImages) {
-      room.images.shift()
+      const removed = room.images.shift()
+      room.imageBytes = Math.max(0, room.imageBytes - getImageBytes(removed))
     }
     persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('image:add', entry)
@@ -706,9 +805,18 @@ io.on('connection', async (socket) => {
     const id = typeof payload?.id === 'string' ? payload.id.trim().slice(0, 80) : ''
     if (!id) return
     if (!Array.isArray(room.images)) return
-    const next = room.images.filter((img) => img?.id !== id)
-    if (next.length === room.images.length) return
+    let removed = false
+    const next = []
+    for (const image of room.images) {
+      if (image?.id === id) {
+        removed = true
+        continue
+      }
+      next.push(image)
+    }
+    if (!removed) return
     room.images = next
+    room.imageBytes = estimateRoomImageBytes(next)
     persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('image:remove', { id })
   })
@@ -970,6 +1078,7 @@ io.on('connection', async (socket) => {
     }
     room.strokes = []
     room.images = []
+    room.imageBytes = 0
     room.redoByUser.clear()
     persistence.scheduleSave(roomId, room)
     io.to(roomId).emit('board:clear')

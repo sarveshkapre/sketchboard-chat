@@ -3,37 +3,46 @@ import { describe, expect, it } from 'vitest'
 import { snapshotRooms } from '../server/rooms-metrics.mjs'
 
 describe('rooms metrics', () => {
-  it('snapshots rooms with counts', () => {
+  it('snapshots rooms with counts and byte estimates', () => {
     const rooms = new Map()
     rooms.set('b', {
       users: new Map([['u1', {}]]),
       strokes: [{}, {}],
-      images: [{}, {}],
+      images: [
+        { dataUrl: 'data:image/png;base64,AAAA' },
+        { dataUrl: 'data:image/png;base64,AAAAAA==' },
+      ],
       messages: [],
       locked: true,
     })
     rooms.set('a', { users: new Map(), strokes: [], images: [], messages: [{}, {}, {}], locked: false })
 
-    expect(snapshotRooms(rooms)).toEqual([
-      {
-        roomId: 'b',
-        usersCount: 1,
-        strokesCount: 2,
-        imagesCount: 2,
-        messagesCount: 0,
-        locked: true,
-        private: false,
-      },
-      {
-        roomId: 'a',
-        usersCount: 0,
-        strokesCount: 0,
-        imagesCount: 0,
-        messagesCount: 3,
-        locked: false,
-        private: false,
-      },
-    ])
+    const result = snapshotRooms(rooms)
+    expect(result).toHaveLength(2)
+
+    expect(result[0]).toMatchObject({
+      roomId: 'b',
+      usersCount: 1,
+      strokesCount: 2,
+      imagesCount: 2,
+      messagesCount: 0,
+      locked: true,
+      private: false,
+    })
+    expect(result[0].imagesBytes).toBeGreaterThan(0)
+    expect(result[0].stateBytesEstimate).toBeGreaterThan(result[0].imagesBytes)
+
+    expect(result[1]).toMatchObject({
+      roomId: 'a',
+      usersCount: 0,
+      strokesCount: 0,
+      imagesCount: 0,
+      messagesCount: 3,
+      locked: false,
+      private: false,
+    })
+    expect(result[1].imagesBytes).toBe(0)
+    expect(result[1].stateBytesEstimate).toBeGreaterThan(0)
   })
 
   it('includes users when requested', () => {
@@ -53,7 +62,9 @@ describe('rooms metrics', () => {
         usersCount: 2,
         strokesCount: 0,
         imagesCount: 0,
+        imagesBytes: 0,
         messagesCount: 0,
+        stateBytesEstimate: 4,
         locked: false,
         private: false,
         users: [

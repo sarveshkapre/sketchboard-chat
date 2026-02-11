@@ -15,6 +15,7 @@ Realtime sketching board with multiplayer presence and chat. Draw together, see 
 - Optional invite-only rooms with expiring invite links
 - Chat reactions and pinned messages
 - Export to PNG and SVG
+- Production CSP header by default (`NODE_ENV=production`)
 
 ## Quickstart
 ```bash
@@ -43,6 +44,8 @@ View-only example: `http://localhost:5173/r/team-1?mode=view`
 - `ROOM_GC_INTERVAL_MS` (server): how often to sweep and evict idle rooms (default `30000` = 30 seconds)
 - `PERSIST_MAX_ROOMS` (server): optional cap on number of room files kept (cleanup runs in background)
 - `PERSIST_TTL_DAYS` (server): optional TTL for room files (delete older than N days)
+- `ROOM_MAX_IMAGE_BYTES` (server): max total decoded bytes for all images in a room (default `8000000`)
+- `CSP_HEADER` (server): optional custom `Content-Security-Policy` header value (defaults to a safe policy in `NODE_ENV=production`)
 - `VITE_SERVER_URL` (client): override Socket.IO server URL
 
 ## Production

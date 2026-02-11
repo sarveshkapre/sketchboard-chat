@@ -1,3 +1,16 @@
+# Update (2026-02-11)
+
+## Shipped
+- Reliability: Added `ROOM_MAX_IMAGE_BYTES` to cap aggregate per-room image bytes in memory; image adds are now rejected when the cap would be exceeded.
+- Observability: `GET /api/rooms` now returns `imagesBytes` and `stateBytesEstimate`; admin rooms UI now surfaces both values.
+- Security: Added a default production `Content-Security-Policy` response header (override with `CSP_HEADER`).
+
+## Verified
+- `npm run check`
+- `npm run smoke`
+
+---
+
 # Update (2026-02-10)
 
 ## Shipped

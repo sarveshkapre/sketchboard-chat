@@ -5,6 +5,9 @@
 - Basic zoom/pan (trackpad + touch).
 
 ## Done
+- Added per-room aggregate image byte cap (`ROOM_MAX_IMAGE_BYTES`) to bound in-memory image growth.
+- Added room state byte estimates (`imagesBytes`, `stateBytesEstimate`) to admin room metrics/UI.
+- Added default production CSP response header (override via `CSP_HEADER`).
 - Image import (paste/drag/drop/file picker) with a select tool to move/delete images.
 - Optional lightweight auth guard for production deployments.
 - Invite UX: selectable invite TTL + regenerate/revoke flow.

@@ -20,6 +20,9 @@
 - `PERSIST_MAX_BYTES`: max bytes per persisted room file (default `10000000`); prevents oversized state files
 - `PERSIST_MAX_ROOMS`: optional cap on persisted room files
 - `PERSIST_TTL_DAYS`: optional TTL cleanup window
+- `ROOM_MAX_IMAGE_BYTES`: max aggregate decoded image bytes per room (default `8000000`)
+- `CSP_HEADER`: optional custom `Content-Security-Policy` value
+  - If omitted and `NODE_ENV=production`, a safe default CSP is applied.
 
 ## Build + Run
 ```bash
@@ -42,3 +45,4 @@ npm run smoke
 - Set `AUTH_TOKEN` if your deployment should not be publicly accessible.
 - Keep `ADMIN_TOKEN` private; it grants room-moderation capabilities via HTTP.
 - Set `INVITE_SECRET` if you want invite-only rooms (and keep it stable to avoid breaking old invites).
+- Keep `ROOM_MAX_IMAGE_BYTES` at a bounded value to limit in-memory image growth per room.

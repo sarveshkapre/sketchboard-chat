@@ -80,7 +80,7 @@ describe('socket image flows', () => {
   beforeAll(async () => {
     const serverPath = path.resolve(process.cwd(), 'server/index.mjs')
     child = spawn(process.execPath, [serverPath], {
-      env: { ...process.env, PORT: '0' },
+      env: { ...process.env, PORT: '0', ROOM_MAX_IMAGE_BYTES: '120' },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
@@ -157,5 +157,25 @@ describe('socket image flows', () => {
     shutdownSocket(a2.socket)
     shutdownSocket(a1.socket)
   })
-})
 
+  it('enforces a per-room image byte cap', async () => {
+    const room = `room-img-cap-${Date.now()}`
+    const a1 = await connectClient({ port, room, userKey: 'cap-a1' })
+    const a2 = await connectClient({ port, room, userKey: 'cap-a2' })
+
+    const approx600BytesPng = `data:image/png;base64,${'A'.repeat(800)}`
+
+    a1.socket.emit('image:add', { id: 'img-cap-1', dataUrl: approx600BytesPng, x: 1, y: 1, w: 40, h: 30 })
+    await waitForEvent<{ id: string }>(a1.socket, 'image:add')
+    await waitForEvent<{ id: string }>(a2.socket, 'image:add')
+
+    a1.socket.emit('image:add', { id: 'img-cap-2', dataUrl: approx600BytesPng, x: 2, y: 2, w: 40, h: 30 })
+    const notice = await waitForEvent<{ kind?: string; message?: string }>(a1.socket, 'notice')
+    expect(notice.kind).toBe('info')
+    expect(String(notice.message || '')).toMatch(/storage limit/i)
+    await expectNoEvent(a2.socket, 'image:add')
+
+    shutdownSocket(a2.socket)
+    shutdownSocket(a1.socket)
+  })
+})

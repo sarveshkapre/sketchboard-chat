@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+- Added `ROOM_MAX_IMAGE_BYTES` to cap total decoded image bytes per room and block oversized aggregate image growth.
+- Admin rooms metrics now include estimated room state bytes and image-bytes totals for faster abuse triage.
+- In `NODE_ENV=production`, server responses now include a default `Content-Security-Policy` header (override with `CSP_HEADER`).
 - Added `PERSIST_MAX_BYTES` to cap per-room persisted state file size (prevents oversized disk writes when `PERSIST=1`).
 - Added synced image import (paste/drag/drop/file picker), plus a Select tool to move/delete images.
 - Admin rooms panel now shows image counts per room.

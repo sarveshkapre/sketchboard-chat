@@ -7,17 +7,26 @@
 - Gaps found during codebase exploration
 
 ## Candidate Features To Do
-- [ ] P2 UX: Basic zoom/pan (trackpad pinch-to-zoom + two-finger pan), with stable cursor coordinates and crisp rendering.
-- [ ] P2 Feature: Stickers tool (emoji/stamps) that syncs as first-class board elements (not strokes).
-- [ ] P2 Feature: Text tool (place/edit/move short labels) as first-class elements.
-- [ ] P3 UX: Mobile/touch drawing polish (palm rejection, better toolbar sizing, scroll/zoom ergonomics).
-- [ ] P3 Reliability: Add per-room total image bytes cap (in-memory + persisted) to prevent worst-case memory growth from many large data URLs.
-- [ ] P3 Observability: Show estimated room state bytes in admin rooms list (`GET /api/rooms`) and UI to support abuse triage.
-- [ ] P3 Security: Add a simple Content-Security-Policy header for the static client in production builds.
-- [ ] P3 DX: Add a minimal Playwright smoke that opens two tabs, joins a room, draws, and verifies isolation.
-- [ ] P3 Feature: Voice rooms (push-to-talk).
+- [ ] P1 UX: Basic zoom/pan (trackpad wheel-zoom + pan tool) with stable board coordinates. Score: impact 5, effort 3, strategic fit 5, differentiation 3, risk 3, confidence 3.
+- [ ] P1 Feature: Text tool (create/edit/move short labels) as first-class board elements. Score: impact 5, effort 4, strategic fit 5, differentiation 4, risk 3, confidence 3.
+- [ ] P1 Feature: Stickers tool (emoji/stamps) as first-class board elements. Score: impact 4, effort 3, strategic fit 4, differentiation 4, risk 2, confidence 4.
+- [ ] P2 UX: Mobile/touch drawing polish (toolbar sizing, gesture ergonomics, palm rejection). Score: impact 4, effort 3, strategic fit 4, differentiation 3, risk 3, confidence 3.
+- [ ] P2 Reliability: Persisted-state aggregate image-byte cap parity with in-memory room cap. Score: impact 4, effort 2, strategic fit 5, differentiation 2, risk 2, confidence 4.
+- [ ] P2 Security: Restrict `connect-src` CSP to configured server origin(s) for tighter production posture. Score: impact 3, effort 2, strategic fit 4, differentiation 1, risk 2, confidence 4.
+- [ ] P2 Observability: Add `GET /api/rooms/:roomId` detail endpoint (top talkers, recent audit, bytes breakdown). Score: impact 4, effort 3, strategic fit 4, differentiation 2, risk 2, confidence 3.
+- [ ] P2 UX: Add explicit room-capacity indicator (images used/bytes used) near Image action. Score: impact 3, effort 2, strategic fit 4, differentiation 2, risk 1, confidence 4.
+- [ ] P2 Quality: Playwright smoke for two-user draw/chat/image isolation and moderation lock path. Score: impact 4, effort 3, strategic fit 4, differentiation 1, risk 2, confidence 4.
+- [ ] P2 Performance: Incremental cursor/presence rendering to avoid full user-list state churn on high-frequency cursor updates. Score: impact 3, effort 3, strategic fit 3, differentiation 2, risk 2, confidence 3.
+- [ ] P3 Feature: Read-only invite links that cannot escalate to edit mode without moderator action. Score: impact 3, effort 3, strategic fit 4, differentiation 2, risk 2, confidence 3.
+- [ ] P3 Reliability: Server-side autosave snapshot integrity checker + startup warning for corrupted room files. Score: impact 3, effort 2, strategic fit 3, differentiation 1, risk 2, confidence 3.
+- [ ] P3 Security: Optional signed admin API nonce to reduce bearer token replay window. Score: impact 2, effort 4, strategic fit 3, differentiation 2, risk 3, confidence 2.
+- [ ] P3 DX: Add load-test script for room fanout throughput (strokes/chat/image events). Score: impact 3, effort 3, strategic fit 3, differentiation 1, risk 2, confidence 3.
+- [ ] P3 Feature: Voice rooms (push-to-talk). Score: impact 2, effort 5, strategic fit 2, differentiation 4, risk 4, confidence 2.
 
 ## Implemented
+- [x] (2026-02-11) P1 Reliability: Added aggregate per-room image-byte cap (`ROOM_MAX_IMAGE_BYTES`) and enforced it at `image:add` with deterministic rejection notice; hydration now normalizes persisted images to room/image byte limits. Evidence: `server/index.mjs`, `tests/socket-images.test.ts`; `npm test -- tests/socket-images.test.ts`.
+- [x] (2026-02-11) P1 Observability: Extended room metrics with `imagesBytes` and `stateBytesEstimate`, and surfaced these values in the admin rooms UI. Evidence: `server/rooms-metrics.mjs`, `src/adminRooms.ts`, `src/App.tsx`, `tests/rooms-metrics.test.ts`, `tests/utils.test.ts`; `npm test -- tests/rooms-metrics.test.ts tests/utils.test.ts`.
+- [x] (2026-02-11) P1 Security: Added production default CSP response header with optional `CSP_HEADER` override and regression test coverage. Evidence: `server/index.mjs`, `tests/csp-header.test.ts`, `README.md`, `docs/DEPLOYMENT.md`, `docs/SECURITY.md`; `npm test -- tests/csp-header.test.ts`.
 - [x] (2026-02-10) P1 Reliability: Cap per-room persisted state file size via `PERSIST_MAX_BYTES`; oversized snapshots are trimmed deterministically before writing to disk. Evidence: `server/persistence.mjs`, `server/index.mjs`, `tests/persistence.test.ts`, `README.md`, `docs/PROJECT.md`, `docs/DEPLOYMENT.md`; `npm run check`, `npm run smoke`.
 - [x] (2026-02-09) P1 Feature: Image import (paste/drag/drop/file picker), synced per room with server-side validation/caps and persistence support (SVG export embeds images; admin rooms list shows image counts). Evidence: `server/index.mjs`, `server/validation.mjs`, `server/persistence.mjs`, `server/rooms-metrics.mjs`, `src/App.tsx`, `src/svg.ts`, `src/adminRooms.ts`, `tests/socket-images.test.ts`, `tests/server-validation.test.ts`, `tests/persistence.test.ts`, `tests/rooms-metrics.test.ts`, `tests/svg.test.ts`; `npm run check`.
 - [x] (2026-02-09) P1 UX: Select tool to move/delete imported images (includes keyboard delete/backspace). Evidence: `src/App.tsx`; `npm run check`.
@@ -58,6 +67,9 @@
 - Image import baseline: mainstream whiteboards support drag/drop and paste-from-clipboard images directly onto the canvas, usually with basic resizing and layer controls. Sources: `https://help.miro.com/hc/en-us/articles/360017730773-Upload-files-to-a-board`, `https://help.figma.com/hc/en-us/articles/4404878935693-Add-images-to-FigJam`, `https://tldraw.dev/blog/flip`.
 - Stickers/stamps baseline: modern whiteboards include lightweight stamp/sticker tools (often with quick keyboard entry) for low-friction feedback and annotation. Sources: `https://help.figma.com/hc/en-us/articles/360047238133-Use-stamps-in-FigJam`, `https://miro.com/es/help/miro-reactions-and-stickers/`.
 - Navigation baseline: whiteboards typically support trackpad pinch-to-zoom and two-finger pan; many also support spacebar-held "hand tool" panning and mousewheel zoom. Sources: `https://help.figma.com/hc/en-us/articles/1500004414582-Pan-and-zoom-in-FigJam`, `https://help.miro.com/hc/en-us/articles/360017731053-Using-Miro-with-a-mouse-trackpad-or-touchscreen`.
+- Market scan (2026-02-11): Excalidraw emphasizes low-friction collaboration with text/images and infinite canvas, reinforcing zoom/pan + text tool as highest PMF gaps for this repo. Sources: `https://docs.excalidraw.com/docs/introduction/features`, `https://plus.excalidraw.com/blog/excalidraw-plus-whiteboard`.
+- Market scan (2026-02-11): tldraw’s camera API examples highlight robust viewport controls as baseline editor infrastructure, supporting a near-term camera/zoom implementation priority. Source: `https://tldraw.dev/examples/editor-api/camera/follow-camera`.
+- Reliability insight: per-image size caps alone are insufficient; aggregate room byte caps are needed to bound memory under many small/medium uploads.
 
 ## Notes
 - This file is maintained by the autonomous clone loop.

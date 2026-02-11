@@ -12,7 +12,7 @@ import {
 } from './room'
 import { addRecentRoom, readRecentRooms } from './recentRooms'
 import { strokesToSvg } from './svg'
-import { createId, formatTime } from './utils'
+import { createId, formatBytes, formatTime } from './utils'
 import { fetchRoomsMetrics, kickUser, setRoomLock, type RoomMetrics } from './adminRooms'
 import { getUserKey } from './userKey'
 import { loadLocalProfile, saveLocalProfile } from './profileStorage'
@@ -1017,7 +1017,7 @@ function App() {
       }
       if (notice.kind === 'info') {
         const message = String(notice.message || '')
-        if (/invalid image|too many images/i.test(message)) {
+        if (/invalid image|too many images|storage limit/i.test(message)) {
           pendingSelectImageIdRef.current = null
         }
         if (/invite link required/i.test(message)) {
@@ -1967,7 +1967,8 @@ function App() {
                           </span>
                           <span className="room-meta">
                             {room.usersCount} users · {room.strokesCount} strokes ·{' '}
-                            {room.imagesCount ?? 0} imgs · {room.messagesCount} msgs
+                            {room.imagesCount ?? 0} imgs ({formatBytes(room.imagesBytes)}) ·{' '}
+                            {room.messagesCount} msgs · state ~{formatBytes(room.stateBytesEstimate)}
                           </span>
                         </button>
                         {adminToken.trim() ? (

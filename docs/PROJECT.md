@@ -33,6 +33,8 @@ Images can be added via paste/drag-drop/file picker and moved/deleted using the 
 - `ROOM_GC_INTERVAL_MS` (server): how often to sweep and evict idle rooms (default `30000` = 30 seconds)
 - `PERSIST_MAX_ROOMS` (server): optional cap on number of room files kept
 - `PERSIST_TTL_DAYS` (server): optional TTL for room files (delete older than N days)
+- `ROOM_MAX_IMAGE_BYTES` (server): max total decoded bytes for all images in a room (default `8000000`)
+- `CSP_HEADER` (server): optional custom Content-Security-Policy header (defaults to a safe production policy)
 - `VITE_SERVER_URL` (client): server URL override
 
 ## Next 3 improvements
