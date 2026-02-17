@@ -80,4 +80,4 @@ docker run --rm -p 4000:4000 sketchboard-chat
 ```
 
 ## Repo docs
-Most repository docs live in `docs/` (see also `PLAN.md`, `CHANGELOG.md`, and `UPDATE.md` at the repo root). For deployment notes see `docs/DEPLOYMENT.md`.
+Most repository docs live in `docs/` (see also `PLAN.md`, `CHANGELOG.md`, and `UPDATE.md` at the repo root). For deployment notes see `docs/DEPLOYMENT.md`. For CI runner setup see `docs/SELF_HOSTED_RUNNER.md`.

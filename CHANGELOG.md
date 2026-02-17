@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+- CI now runs on `self-hosted` for all jobs (`build` and `codeql`).
+- Added runner preflight step (`scripts/runner-preflight.sh`) to fail fast on missing host dependencies.
+- CodeQL job now skips fork PR events to avoid permission-related failures on self-hosted CI.
+- Added self-hosted runner setup and registration guide (`docs/SELF_HOSTED_RUNNER.md`).
 - Chat UX: unread indicator + jump-to-latest, message copy, and message search filter.
 - Added keyboard shortcuts for tools/brush size/settings plus an in-app shortcuts modal.
 - Persisted drawing preferences (`tool`, `color`, `size`) in local storage.

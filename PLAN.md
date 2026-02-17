@@ -27,6 +27,7 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - Keyboard shortcuts + in-app shortcuts modal
 - Persisted drawing preferences (tool/color/size)
 - Random room generator and admin room sorting controls
+- CI on self-hosted runners with preflight validation
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -61,6 +62,7 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Keyboard shortcuts + in-app shortcuts modal.
 - Persisted drawing preferences (tool/color/size).
 - Random room generator and admin room sorting controls.
+- CI on self-hosted runners with preflight validation.
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next

@@ -10,6 +10,8 @@
 
 ## Recent Decisions
 - Template: YYYY-MM-DD | Decision | Why | Evidence (tests/logs) | Commit | Confidence (high/medium/low) | Trust (trusted/untrusted)
+- 2026-02-17 | Migrate GitHub Actions jobs to `runs-on: self-hosted` and add runner preflight checks in workflow steps. | Billing blockers on hosted runners require infrastructure-neutral CI path; preflight provides deterministic failure mode for missing host tools. | `bash scripts/runner-preflight.sh`; `npm run check`; `npm run smoke`; `npm audit --audit-level=high` | pending | high | trusted
+- 2026-02-17 | Add self-hosted runner registration and ops guide (`docs/SELF_HOSTED_RUNNER.md`). | Reduces setup drift and provides a reproducible runbook for repository-scoped runner provisioning on Linux/macOS. | `docs/SELF_HOSTED_RUNNER.md` | pending | high | trusted
 - 2026-02-17 | Add chat usability layer (unread badge, jump-to-latest, search, and copy action). | Chat is now dense enough that users need navigation and retrieval controls to stay efficient during collaboration. | `npm run check` | f382eb6,6799e2e,750a547 | high | trusted
 - 2026-02-17 | Add keyboard-first workflow (`P`/`E`/`V`, `[`/`]`, `,`, `?`) with visible shortcut reference modal. | Faster command latency and discoverability improves repeated usage for power users without changing MVP auth model. | `npm run check` | 22378b2,6a7c5af,71ae46a | high | trusted
 - 2026-02-17 | Persist drawing prefs and add quick random room generation/admin sorting controls. | Cuts repeated setup friction and improves operator triage speed across many active rooms. | `tests/drawPrefsStorage.test.ts`; `tests/room.test.ts`; `npm run check` | 3fccfa7,60bd797,76dd881 | high | trusted
@@ -41,6 +43,7 @@
 
 ## Known Risks
 - Dependency major upgrades are available but not yet migrated; upgrade work should be isolated with compatibility testing.
+- `npm audit` currently reports one low-severity `qs` advisory in transitive dependencies.
 
 ## Next Prioritized Tasks
 - P1 UX: basic zoom/pan with stable board coordinates and predictable cursor/pointer behavior.
@@ -50,6 +53,11 @@
 
 ## Verification Evidence
 - Template: YYYY-MM-DD | Command | Key output | Status (pass/fail)
+- 2026-02-17 | `bash scripts/runner-preflight.sh` | required runner tools detected on local host | pass
+- 2026-02-17 | `npm ci` | dependencies installed cleanly | pass
+- 2026-02-17 | `npm run check` | lint+typecheck+tests+build all passed (60 tests) | pass
+- 2026-02-17 | `npm run smoke` | `{"status":"ok"}` | pass
+- 2026-02-17 | `npm audit --audit-level=high` | no high/critical vulnerabilities (1 low severity advisory) | pass
 - 2026-02-17 | `npm outdated` | major upgrades available (`eslint@10`, `vitest@4`, `jsdom@28`, `globals@17`) | pass
 - 2026-02-17 | `npm run test -- tests/drawPrefsStorage.test.ts tests/profileStorage.test.ts` | 5 tests passed | pass
 - 2026-02-17 | `npm run test -- tests/room.test.ts` | 5 tests passed | pass

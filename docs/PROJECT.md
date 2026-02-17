@@ -10,6 +10,10 @@
 - Full gate: `npm run check`
 - Smoke: `npm run smoke`
 
+## CI
+- GitHub Actions workflows run on `self-hosted` runners.
+- Runner setup and registration steps: `docs/SELF_HOSTED_RUNNER.md`.
+
 ## Rooms
 Rooms separate boards by URL. Example: `http://localhost:5173/r/team-1` (also supports `?room=team-1`)
 View-only mode: append `?mode=view` (disables drawing + chat).

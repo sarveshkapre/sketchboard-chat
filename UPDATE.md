@@ -1,3 +1,20 @@
+# Update (2026-02-17 CI self-hosted migration)
+
+## Shipped
+- CI migration: GitHub Actions jobs now run on `self-hosted` runners only.
+- Added runner dependency preflight script (`scripts/runner-preflight.sh`) used by workflow jobs.
+- Added self-hosted runner operations doc with registration and service setup instructions (`docs/SELF_HOSTED_RUNNER.md`).
+- CodeQL workflow hardening: skip fork PR contexts where `security-events: write` is not available.
+
+## Verified
+- `bash scripts/runner-preflight.sh`
+- `npm ci`
+- `npm run check`
+- `npm run smoke`
+- `npm audit --audit-level=high`
+
+---
+
 # Update (2026-02-17)
 
 ## Shipped
