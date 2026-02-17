@@ -111,6 +111,11 @@ function isEditableTarget(target: EventTarget | null) {
   return tag === 'input' || tag === 'textarea' || target.isContentEditable
 }
 
+function isNearBottom(element: HTMLElement, threshold = 24) {
+  const distance = element.scrollHeight - element.scrollTop - element.clientHeight
+  return distance <= threshold
+}
+
 function getSocketUrl() {
   const envUrl = import.meta.env.VITE_SERVER_URL as string | undefined
   if (envUrl) return envUrl
@@ -557,6 +562,8 @@ function App() {
   const cursorRafRef = useRef<number | null>(null)
   const pendingCursorRef = useRef<Point | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const messagesListRef = useRef<HTMLDivElement | null>(null)
+  const chatAtBottomRef = useRef(true)
 
   const [connected, setConnected] = useState(false)
   const [selfId, setSelfId] = useState('')
@@ -577,6 +584,8 @@ function App() {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const selectedImageIdRef = useRef<string | null>(null)
   const [chatInput, setChatInput] = useState('')
+  const [chatAtBottom, setChatAtBottom] = useState(true)
+  const [unreadMessages, setUnreadMessages] = useState(0)
   const [roomInput, setRoomInput] = useState(initialRoomId)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
   const [toast, setToast] = useState<string | null>(null)
@@ -771,6 +780,10 @@ function App() {
   )
 
   useEffect(() => {
+    chatAtBottomRef.current = chatAtBottom
+  }, [chatAtBottom])
+
+  useEffect(() => {
     socketRef.current = socket
     socket.on('connect', () => setConnected(true))
     socket.on('disconnect', () => setConnected(false))
@@ -836,6 +849,8 @@ function App() {
         }
       }
       setMessages(payload.messages.slice(-LIMITS.maxMessages))
+      setUnreadMessages(0)
+      setChatAtBottom(true)
       strokesRef.current = payload.strokes.slice(-LIMITS.maxStrokes)
       imagesRef.current = Array.isArray(payload.images) ? payload.images : []
       setSelectedImageId(null)
@@ -981,6 +996,9 @@ function App() {
 
     socket.on('chat:message', (message: ChatMessage) => {
       setMessages((prev) => [...prev, message].slice(-LIMITS.maxMessages))
+      if (!chatAtBottomRef.current && message.userId !== selfId) {
+        setUnreadMessages((prev) => prev + 1)
+      }
     })
 
     socket.on('chat:reaction', (payload: { id?: string; reactions?: Record<string, string[]> }) => {
@@ -1040,7 +1058,7 @@ function App() {
       }
       socket.disconnect()
     }
-  }, [socket, resizeCanvas, scheduleRender])
+  }, [socket, resizeCanvas, scheduleRender, selfId])
 
   useEffect(() => {
     resizeCanvas()
@@ -1049,8 +1067,9 @@ function App() {
   }, [resizeCanvas])
 
   useEffect(() => {
+    if (!chatAtBottomRef.current) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages])
+  }, [messages, chatAtBottom])
 
   useEffect(() => {
     if (!toast) return
@@ -1642,6 +1661,22 @@ function App() {
     setChatInput('')
   }
 
+  const handleMessagesScroll = () => {
+    const element = messagesListRef.current
+    if (!element) return
+    const nextAtBottom = isNearBottom(element)
+    setChatAtBottom(nextAtBottom)
+    if (nextAtBottom) {
+      setUnreadMessages(0)
+    }
+  }
+
+  const handleJumpToLatest = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    setChatAtBottom(true)
+    setUnreadMessages(0)
+  }
+
   const handleReact = (messageId: string, reaction: string) => {
     if (!canEdit) return
     socketRef.current?.emit('chat:react', { id: messageId, reaction })
@@ -2037,7 +2072,12 @@ function App() {
                 ) : null}
               </div>
             ) : null}
-            <div className="messages">
+            {unreadMessages > 0 && !chatAtBottom ? (
+              <button type="button" className="chat-jump" onClick={handleJumpToLatest}>
+                Jump to latest ({unreadMessages})
+              </button>
+            ) : null}
+            <div className="messages" ref={messagesListRef} onScroll={handleMessagesScroll}>
               {messages.map((message) => (
                 <div key={message.id} className="message">
                   <div className="bubble">
