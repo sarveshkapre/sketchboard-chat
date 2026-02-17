@@ -516,6 +516,60 @@ function RoomSettingsDrawer({
   )
 }
 
+function ShortcutsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div className="drawer-overlay" onMouseDown={onClose} role="presentation">
+      <div
+        className="drawer shortcuts-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Keyboard shortcuts"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="drawer-header">
+          <div>
+            <p className="drawer-title">Keyboard shortcuts</p>
+            <p className="drawer-sub">Faster drawing and moderation workflow</p>
+          </div>
+          <button type="button" className="drawer-close" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <div className="shortcuts-grid">
+          <p><kbd>P</kbd> Pen</p>
+          <p><kbd>E</kbd> Eraser</p>
+          <p><kbd>V</kbd> Select tool</p>
+          <p><kbd>[</kbd>/<kbd>]</kbd> Brush size down/up</p>
+          <p><kbd>Cmd/Ctrl + Z</kbd> Undo</p>
+          <p><kbd>Cmd/Ctrl + Y</kbd> Redo</p>
+          <p><kbd>,</kbd> Open room settings</p>
+          <p><kbd>?</kbd> Open shortcuts</p>
+          <p><kbd>Delete</kbd> Remove selected image</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const initialRoomId = useMemo(() => getRoomIdFromUrl(window.location.href), [])
   const initialViewOnly = useMemo(() => isViewOnlyFromUrl(window.location.href), [])
@@ -604,6 +658,7 @@ function App() {
   const [roomsOnlyLocked, setRoomsOnlyLocked] = useState(false)
   const [roomsOnlyInviteOnly, setRoomsOnlyInviteOnly] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [accessBlock, setAccessBlock] = useState<{ kind: 'invite' | 'auth'; message: string } | null>(
     null,
   )
@@ -1235,6 +1290,11 @@ function App() {
       if (key === ',') {
         event.preventDefault()
         setSettingsOpen(true)
+        return
+      }
+      if (key === '?') {
+        event.preventDefault()
+        setShortcutsOpen(true)
         return
       }
       if (!canEdit) return
@@ -1898,6 +1958,9 @@ function App() {
               </button>
               <button onClick={handleExport}>Export PNG</button>
               <button onClick={handleExportSvg}>Export SVG</button>
+              <button type="button" onClick={() => setShortcutsOpen(true)}>
+                Shortcuts
+              </button>
             </div>
           </div>
 
@@ -2225,6 +2288,8 @@ function App() {
           </div>
         </aside>
       </div>
+
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <RoomSettingsDrawer
         open={settingsOpen}
