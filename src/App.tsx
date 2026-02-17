@@ -1225,6 +1225,39 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [canEdit, tool])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.repeat) return
+
+      const key = event.key.toLowerCase()
+      if (key === ',') {
+        event.preventDefault()
+        setSettingsOpen(true)
+        return
+      }
+      if (!canEdit) return
+      if (key === 'p') {
+        event.preventDefault()
+        setTool('pen')
+        return
+      }
+      if (key === 'e') {
+        event.preventDefault()
+        setTool('eraser')
+        return
+      }
+      if (key === 'v') {
+        event.preventDefault()
+        setTool('select')
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [canEdit])
+
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!canEdit) return
     const canvas = canvasRef.current
