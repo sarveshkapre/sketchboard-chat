@@ -410,6 +410,24 @@ canvas {
   gap: 12px;
 }
 
+.rooms-sort {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+}
+
+.rooms-sort-select {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0f0f1c;
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+}
+
 .rooms-list {
   list-style: none;
   padding: 0;

@@ -668,6 +668,9 @@ function App() {
   const [roomsAutoRefresh, setRoomsAutoRefresh] = useState(true)
   const [roomsOnlyLocked, setRoomsOnlyLocked] = useState(false)
   const [roomsOnlyInviteOnly, setRoomsOnlyInviteOnly] = useState(false)
+  const [roomsSortBy, setRoomsSortBy] = useState<'users' | 'messages' | 'strokes' | 'bytes' | 'name'>(
+    'users',
+  )
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [accessBlock, setAccessBlock] = useState<{ kind: 'invite' | 'auth'; message: string } | null>(
@@ -697,6 +700,25 @@ function App() {
       )
     })
   }, [messages, chatFilter])
+  const visibleRooms = useMemo(() => {
+    const needle = roomsFilter.trim().toLowerCase()
+    const next = roomsMetrics
+      .filter((room) => (!needle ? true : room.roomId.toLowerCase().includes(needle)))
+      .filter((room) => (!roomsOnlyLocked ? true : Boolean(room.locked)))
+      .filter((room) => (!roomsOnlyInviteOnly ? true : Boolean(room.private)))
+
+    const byName = (a: RoomMetrics, b: RoomMetrics) => a.roomId.localeCompare(b.roomId)
+    next.sort((a, b) => {
+      if (roomsSortBy === 'name') return byName(a, b)
+      if (roomsSortBy === 'messages') return b.messagesCount - a.messagesCount || byName(a, b)
+      if (roomsSortBy === 'strokes') return b.strokesCount - a.strokesCount || byName(a, b)
+      if (roomsSortBy === 'bytes') {
+        return (b.stateBytesEstimate ?? 0) - (a.stateBytesEstimate ?? 0) || byName(a, b)
+      }
+      return b.usersCount - a.usersCount || byName(a, b)
+    })
+    return next
+  }, [roomsMetrics, roomsFilter, roomsOnlyLocked, roomsOnlyInviteOnly, roomsSortBy])
 
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
@@ -2111,18 +2133,25 @@ function App() {
                     />
                     Invite-only only
                   </label>
+                  <label className="rooms-sort" htmlFor="rooms-sort">
+                    Sort
+                  </label>
+                  <select
+                    id="rooms-sort"
+                    className="rooms-sort-select"
+                    value={roomsSortBy}
+                    onChange={(event) => setRoomsSortBy(event.target.value as typeof roomsSortBy)}
+                  >
+                    <option value="users">Most users</option>
+                    <option value="messages">Most messages</option>
+                    <option value="strokes">Most strokes</option>
+                    <option value="bytes">Largest state</option>
+                    <option value="name">Name</option>
+                  </select>
                 </div>
                 {adminError ? <p className="muted">{adminError}</p> : null}
                 <ul className="rooms-list">
-                  {roomsMetrics
-                    .filter((room) =>
-                      roomsFilter.trim()
-                        ? room.roomId.toLowerCase().includes(roomsFilter.trim().toLowerCase())
-                        : true,
-                    )
-                    .filter((room) => (!roomsOnlyLocked ? true : Boolean(room.locked)))
-                    .filter((room) => (!roomsOnlyInviteOnly ? true : Boolean(room.private)))
-                    .map((room) => (
+                  {visibleRooms.map((room) => (
                       <li key={room.roomId}>
                         <button
                           type="button"
@@ -2190,7 +2219,7 @@ function App() {
                         ) : null}
                       </li>
                     ))}
-                  {roomsMetrics.length === 0 && !adminLoading ? (
+                  {visibleRooms.length === 0 && !adminLoading ? (
                     <li className="muted">No active rooms.</li>
                   ) : null}
                 </ul>
