@@ -17,6 +17,7 @@ import { fetchRoomsMetrics, kickUser, setRoomLock, type RoomMetrics } from './ad
 import { getUserKey } from './userKey'
 import { loadLocalProfile, saveLocalProfile } from './profileStorage'
 import { loadLocalAuthToken, saveLocalAuthToken } from './authStorage'
+import { loadLocalDrawPrefs, saveLocalDrawPrefs } from './drawPrefsStorage'
 
 type Point = { x: number; y: number }
 
@@ -576,6 +577,10 @@ function App() {
   const initialInvite = useMemo(() => getInviteFromUrl(window.location.href), [])
   const userKey = useMemo(() => getUserKey(), [])
   const initialAuthToken = useMemo(() => loadLocalAuthToken(), [])
+  const initialDrawPrefs = useMemo(() => loadLocalDrawPrefs(), [])
+  const initialSize = initialDrawPrefs?.size && SIZES.includes(initialDrawPrefs.size)
+    ? initialDrawPrefs.size
+    : SIZES[1]
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
@@ -632,9 +637,9 @@ function App() {
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null)
   const [inviteTtlMs, setInviteTtlMs] = useState(15 * 60 * 1000)
-  const [color, setColor] = useState(COLORS[0])
-  const [size, setSize] = useState(SIZES[1])
-  const [tool, setTool] = useState<'pen' | 'eraser' | 'select'>('pen')
+  const [color, setColor] = useState(initialDrawPrefs?.color ?? COLORS[0])
+  const [size, setSize] = useState(initialSize)
+  const [tool, setTool] = useState<'pen' | 'eraser' | 'select'>(initialDrawPrefs?.tool ?? 'pen')
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const selectedImageIdRef = useRef<string | null>(null)
   const [chatInput, setChatInput] = useState('')
@@ -1163,6 +1168,10 @@ function App() {
   useEffect(() => {
     setRecentRooms(addRecentRoom(roomId))
   }, [roomId])
+
+  useEffect(() => {
+    saveLocalDrawPrefs({ color, size, tool })
+  }, [color, size, tool])
 
   const refreshRooms = useCallback(async () => {
     setAdminLoading(true)
