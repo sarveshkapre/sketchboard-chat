@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client'
 import './App.css'
 import {
   buildRoomUrl,
+  createRandomRoomId,
   buildInviteUrl,
   buildViewUrl,
   getInviteFromUrl,
@@ -241,6 +242,7 @@ function RoomSettingsDrawer({
   roomInput,
   onRoomInputChange,
   onJoinRoom,
+  onGenerateRoom,
   recentRooms,
   onJoinRecentRoom,
   copyStatus,
@@ -276,6 +278,7 @@ function RoomSettingsDrawer({
   roomInput: string
   onRoomInputChange: (next: string) => void
   onJoinRoom: (event: React.FormEvent) => void
+  onGenerateRoom: () => void
   recentRooms: string[]
   onJoinRecentRoom: (roomId: string) => void
   copyStatus: 'idle' | 'copied'
@@ -360,6 +363,9 @@ function RoomSettingsDrawer({
               />
               <button type="submit">Join</button>
             </form>
+            <button type="button" className="room-mini-action" onClick={onGenerateRoom}>
+              New random room
+            </button>
             {recentRooms.length > 0 ? (
               <div className="recent-rooms" aria-label="Recent rooms">
                 {recentRooms.map((value) => (
@@ -2307,6 +2313,13 @@ function App() {
         roomInput={roomInput}
         onRoomInputChange={(next) => setRoomInput(next)}
         onJoinRoom={handleJoinRoom}
+        onGenerateRoom={() => {
+          const nextRoomId = createRandomRoomId()
+          const url = viewOnly
+            ? buildViewUrl(window.location.href, nextRoomId)
+            : buildRoomUrl(window.location.href, nextRoomId)
+          window.location.assign(url)
+        }}
         recentRooms={recentRooms}
         onJoinRecentRoom={(value) => {
           const url = viewOnly

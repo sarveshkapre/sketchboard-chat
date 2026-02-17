@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildRoomUrl,
   buildViewUrl,
+  createRandomRoomId,
   getRoomIdFromUrl,
   isViewOnlyFromUrl,
   normalizeRoomId,
@@ -36,5 +37,11 @@ describe('room', () => {
 
     const url = buildViewUrl('http://localhost:5173/r/team-1', 'team-1')
     expect(url).toBe('http://localhost:5173/r/team-1?mode=view')
+  })
+
+  it('creates a random room id', () => {
+    const value = createRandomRoomId()
+    expect(value).toMatch(/^[a-z0-9_-]+$/)
+    expect(value).not.toBe('main')
   })
 })

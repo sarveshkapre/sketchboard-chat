@@ -1,4 +1,6 @@
 export const DEFAULT_ROOM_ID = 'main'
+const ROOM_ADJECTIVES = ['swift', 'calm', 'bright', 'bold', 'lively', 'clear']
+const ROOM_NOUNS = ['otter', 'fox', 'panda', 'hawk', 'lynx', 'koala']
 
 export function normalizeRoomId(value: string | null | undefined) {
   const raw = (value ?? '').trim().toLowerCase()
@@ -67,4 +69,11 @@ export function buildInviteUrl(currentUrl: string, roomId: string, inviteToken: 
     url.searchParams.set('invite', token)
   }
   return url.toString()
+}
+
+export function createRandomRoomId() {
+  const adjective = ROOM_ADJECTIVES[Math.floor(Math.random() * ROOM_ADJECTIVES.length)] || 'room'
+  const noun = ROOM_NOUNS[Math.floor(Math.random() * ROOM_NOUNS.length)] || 'team'
+  const suffix = Math.floor(100 + Math.random() * 900)
+  return normalizeRoomId(`${adjective}-${noun}-${suffix}`)
 }
