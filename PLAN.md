@@ -23,6 +23,10 @@ One‑line pitch: a realtime, multiplayer sketchboard with chat + presence for q
 - Stable user identity for role persistence (local key)
 - Room activity log for moderation changes
 - Chat reactions and pinned messages
+- Chat search, copy, unread indicator, and jump-to-latest
+- Keyboard shortcuts + in-app shortcuts modal
+- Persisted drawing preferences (tool/color/size)
+- Random room generator and admin room sorting controls
 
 ## Top risks / unknowns
 - In‑memory state (strokes/messages) can still grow under abuse; needs continued caps + room isolation.
@@ -53,8 +57,13 @@ See `docs/PROJECT.md` for the canonical command list and environment variables.
 - Stable user identity for role persistence (local key).
 - Room activity log for moderation changes.
 - Chat reactions and pinned messages.
+- Chat search, copy, unread indicator, and jump-to-latest.
+- Keyboard shortcuts + in-app shortcuts modal.
+- Persisted drawing preferences (tool/color/size).
+- Random room generator and admin room sorting controls.
 - Presence and chat UX polish (cursor throttling, message author metadata, chat autoscroll).
 
 ## What should ship next
-- Optional: readonly/share links and "spectator" mode.
-- Room settings drawer (lock, invite, roles).
+- P1 UX: zoom/pan with stable board coordinates.
+- P1 Feature: first-class text tool (move/edit).
+- P1 Feature: sticker/emoji tool as board elements.

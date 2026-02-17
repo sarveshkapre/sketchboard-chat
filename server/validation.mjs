@@ -103,6 +103,21 @@ export function sanitizeChatMessage(input, limits) {
   return { id, text }
 }
 
+export function ensureUniqueMessageId(messages, candidate) {
+  const seen = new Set(
+    (Array.isArray(messages) ? messages : [])
+      .map((entry) => safeTrimString(entry?.id, 80))
+      .filter(Boolean),
+  )
+  const normalized = safeTrimString(candidate, 80) || createId('msg')
+  if (!seen.has(normalized)) return normalized
+  for (let i = 0; i < 6; i += 1) {
+    const next = createId('msg')
+    if (!seen.has(next)) return next
+  }
+  return `${normalized}-${Date.now().toString(36)}`
+}
+
 export function sanitizeMessageId(value) {
   return safeTrimString(value, 80)
 }

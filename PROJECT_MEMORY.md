@@ -6,9 +6,15 @@
 ## Architecture Snapshot
 
 ## Open Problems
+- Chat message volume can still become noisy in active rooms; threading is still absent.
 
 ## Recent Decisions
 - Template: YYYY-MM-DD | Decision | Why | Evidence (tests/logs) | Commit | Confidence (high/medium/low) | Trust (trusted/untrusted)
+- 2026-02-17 | Add chat usability layer (unread badge, jump-to-latest, search, and copy action). | Chat is now dense enough that users need navigation and retrieval controls to stay efficient during collaboration. | `npm run check` | f382eb6,6799e2e,750a547 | high | trusted
+- 2026-02-17 | Add keyboard-first workflow (`P`/`E`/`V`, `[`/`]`, `,`, `?`) with visible shortcut reference modal. | Faster command latency and discoverability improves repeated usage for power users without changing MVP auth model. | `npm run check` | 22378b2,6a7c5af,71ae46a | high | trusted
+- 2026-02-17 | Persist drawing prefs and add quick random room generation/admin sorting controls. | Cuts repeated setup friction and improves operator triage speed across many active rooms. | `tests/drawPrefsStorage.test.ts`; `tests/room.test.ts`; `npm run check` | 3fccfa7,60bd797,76dd881 | high | trusted
+- 2026-02-17 | De-duplicate incoming chat message IDs server-side per room. | Prevents client-provided ID collisions from corrupting reaction/pin updates that key by message ID. | `tests/server-validation.test.ts`; `npm run check` | pending | high | trusted
+- 2026-02-17 | Dependency scan (`npm outdated`) shows available major updates (ESLint 10, Vitest 4, jsdom 28, globals 17). | Captures current ecosystem state without unplanned major-version migrations in a feature delivery cycle. | `npm outdated` | pending | medium | trusted
 - 2026-02-11 | Enforce aggregate room image bytes (`ROOM_MAX_IMAGE_BYTES`) in-memory and normalize hydrated room images to byte limits. | Per-image caps alone do not bound total room memory under many uploads; aggregate enforcement is needed to keep memory predictable. | `tests/socket-images.test.ts`; `npm run check`; `npm run smoke` | 7a27e58 | high | trusted
 - 2026-02-11 | Extend room metrics/admin UI with `imagesBytes` and `stateBytesEstimate`. | Operators need byte-level triage signals to identify abusive rooms quickly and decide when to intervene. | `tests/rooms-metrics.test.ts`; `tests/utils.test.ts`; `npm run check` | 7a27e58 | high | trusted
 - 2026-02-11 | Add default production CSP header with optional override (`CSP_HEADER`). | Baseline browser hardening reduces injection blast radius and is expected in production deployments. | `tests/csp-header.test.ts`; `npm run check`; GitHub Actions run `21897025725` | 7a27e58 | high | trusted
@@ -34,6 +40,7 @@
 - 2026-02-09 | Invite token verification always failed. | Regex incorrectly matched a literal backslash before the dot separator. | Fix regex + add unit/integration tests for create/verify and invite-only join rejection. | Add a unit test for any security-critical token format; add at least one socket-level integration test for end-to-end enforcement. | 87004af | high
 
 ## Known Risks
+- Dependency major upgrades are available but not yet migrated; upgrade work should be isolated with compatibility testing.
 
 ## Next Prioritized Tasks
 - P1 UX: basic zoom/pan with stable board coordinates and predictable cursor/pointer behavior.
@@ -43,6 +50,11 @@
 
 ## Verification Evidence
 - Template: YYYY-MM-DD | Command | Key output | Status (pass/fail)
+- 2026-02-17 | `npm outdated` | major upgrades available (`eslint@10`, `vitest@4`, `jsdom@28`, `globals@17`) | pass
+- 2026-02-17 | `npm run test -- tests/drawPrefsStorage.test.ts tests/profileStorage.test.ts` | 5 tests passed | pass
+- 2026-02-17 | `npm run test -- tests/room.test.ts` | 5 tests passed | pass
+- 2026-02-17 | `npm run test -- tests/server-validation.test.ts` | 10 tests passed | pass
+- 2026-02-17 | `npm run check` | lint+typecheck+tests+build all passed (60 tests) | pass
 - 2026-02-11 | `npm test -- tests/socket-images.test.ts tests/csp-header.test.ts tests/rooms-metrics.test.ts tests/utils.test.ts` | 8 tests passed | pass
 - 2026-02-11 | `npm run check` | lint+typecheck+tests+build all passed (56 tests) | pass
 - 2026-02-11 | `npm run smoke` | `{\"status\":\"ok\"}` | pass

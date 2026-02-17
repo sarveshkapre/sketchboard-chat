@@ -7,6 +7,7 @@ import express from 'express'
 import { Server } from 'socket.io'
 
 import {
+  ensureUniqueMessageId,
   parseCorsOrigin,
   sanitizeChatMessage,
   sanitizeCursor,
@@ -1101,8 +1102,9 @@ io.on('connection', async (socket) => {
     }
     const sanitized = sanitizeChatMessage(message, LIMITS)
     if (!sanitized) return
+    const uniqueId = ensureUniqueMessageId(room.messages, sanitized.id)
     const entry = {
-      id: sanitized.id,
+      id: uniqueId,
       text: sanitized.text,
       userId: socket.id,
       userName: user.name,

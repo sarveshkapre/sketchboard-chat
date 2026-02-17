@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ensureUniqueMessageId,
   parseCorsOrigin,
   sanitizeChatMessage,
   sanitizeCursor,
@@ -50,6 +51,14 @@ describe('server validation', () => {
     const allowed = ['👍', '❤️']
     expect(sanitizeReaction('  👍 ', allowed)).toBe('👍')
     expect(sanitizeReaction('😂', allowed)).toBe(null)
+  })
+
+  it('ensures unique message ids', () => {
+    const existing = [{ id: 'm1' }, { id: 'm2' }]
+    expect(ensureUniqueMessageId(existing, 'm3')).toBe('m3')
+    const fallback = ensureUniqueMessageId(existing, 'm2')
+    expect(fallback).not.toBe('m2')
+    expect(fallback.startsWith('msg-')).toBe(true)
   })
 
   it('sanitizes user profile updates', () => {

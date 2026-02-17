@@ -1,3 +1,18 @@
+# Update (2026-02-17)
+
+## Shipped
+- Chat UX: unread counter + jump-to-latest, message copy action, and chat search filter.
+- Productivity UX: keyboard shortcuts (`P`/`E`/`V`, `[`/`]`, `,`, `?`) with an in-app shortcuts modal.
+- Persistence UX: drawing preferences (`tool`, `color`, `size`) now persist locally.
+- Room UX: quick random room generation action in room settings.
+- Admin UX: rooms list sorting controls (users/messages/strokes/state bytes/name).
+- Reliability: duplicate chat message IDs are now de-duplicated server-side per room.
+
+## Verified
+- `npm run check`
+
+---
+
 # Update (2026-02-11)
 
 ## Shipped

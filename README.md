@@ -14,6 +14,10 @@ Realtime sketching board with multiplayer presence and chat. Draw together, see 
 - Room activity log for moderation changes
 - Optional invite-only rooms with expiring invite links
 - Chat reactions and pinned messages
+- Chat search, copy, unread indicator, and jump-to-latest
+- Keyboard shortcuts (`P`/`E`/`V`, `[`/`]`, `,`, `?`) with an in-app shortcuts modal
+- Persisted drawing preferences (tool/color/size)
+- Random room generation and admin room sorting controls
 - Export to PNG and SVG
 - Production CSP header by default (`NODE_ENV=production`)
 
