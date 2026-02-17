@@ -584,6 +584,7 @@ function App() {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const selectedImageIdRef = useRef<string | null>(null)
   const [chatInput, setChatInput] = useState('')
+  const [chatFilter, setChatFilter] = useState('')
   const [chatAtBottom, setChatAtBottom] = useState(true)
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [roomInput, setRoomInput] = useState(initialRoomId)
@@ -621,6 +622,15 @@ function App() {
     () => (pinnedId ? messages.find((message) => message.id === pinnedId) ?? null : null),
     [messages, pinnedId],
   )
+  const filteredMessages = useMemo(() => {
+    const needle = chatFilter.trim().toLowerCase()
+    if (!needle) return messages
+    return messages.filter((message) => {
+      return (
+        message.text.toLowerCase().includes(needle) || message.userName.toLowerCase().includes(needle)
+      )
+    })
+  }, [messages, chatFilter])
 
   const socket = useMemo(() => {
     return io(getSocketUrl(), {
@@ -2065,6 +2075,13 @@ function App() {
           </div>
           <div className="panel-block chat">
             <h3>Chat</h3>
+            <input
+              className="chat-filter"
+              value={chatFilter}
+              onChange={(event) => setChatFilter(event.target.value)}
+              placeholder="Search messages..."
+              aria-label="Search chat messages"
+            />
             {pinnedMessage ? (
               <div className="pinned">
                 <div className="pinned-meta">
@@ -2089,7 +2106,7 @@ function App() {
               </button>
             ) : null}
             <div className="messages" ref={messagesListRef} onScroll={handleMessagesScroll}>
-              {messages.map((message) => (
+              {filteredMessages.map((message) => (
                 <div key={message.id} className="message">
                   <div className="bubble">
                     <p className="meta">
@@ -2143,6 +2160,9 @@ function App() {
                   </div>
                 </div>
               ))}
+              {filteredMessages.length === 0 ? (
+                <p className="muted">No messages match this search.</p>
+              ) : null}
               <div ref={messagesEndRef} />
             </div>
             <form onSubmit={handleSend}>

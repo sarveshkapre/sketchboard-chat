@@ -652,6 +652,15 @@ canvas {
   min-height: 300px;
 }
 
+.chat-filter {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0f0f1c;
+  color: var(--text);
+}
+
 .chat-jump {
   padding: 8px 10px;
   border-radius: 10px;
