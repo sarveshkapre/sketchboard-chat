@@ -779,6 +779,17 @@ canvas {
   color: #cbd8ff;
 }
 
+.message-copy {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .pin-toggle {
   padding: 6px 10px;
   border-radius: 10px;

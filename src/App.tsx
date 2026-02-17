@@ -1687,6 +1687,17 @@ function App() {
     socketRef.current?.emit('chat:pin', { id: messageId })
   }
 
+  const handleCopyMessage = async (text: string) => {
+    const value = String(text || '')
+    if (!value.trim()) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setToast('Message copied.')
+    } catch {
+      window.prompt('Copy this message', value)
+    }
+  }
+
   return (
     <div className="app-shell">
       {accessBlock ? (
@@ -2111,6 +2122,13 @@ function App() {
                           )
                         })}
                       </div>
+                      <button
+                        type="button"
+                        className="message-copy"
+                        onClick={() => void handleCopyMessage(message.text)}
+                      >
+                        Copy
+                      </button>
                       {canModerate ? (
                         <button
                           type="button"
