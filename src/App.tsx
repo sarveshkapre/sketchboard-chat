@@ -1251,12 +1251,25 @@ function App() {
       if (key === 'v') {
         event.preventDefault()
         setTool('select')
+        return
+      }
+      if (key === '[' || key === ']') {
+        event.preventDefault()
+        const currentIndex = SIZES.indexOf(size)
+        const safeIndex = currentIndex >= 0 ? currentIndex : 0
+        const offset = key === '[' ? -1 : 1
+        const nextIndex = Math.max(0, Math.min(SIZES.length - 1, safeIndex + offset))
+        const nextSize = SIZES[nextIndex]
+        if (nextSize !== size) {
+          setSize(nextSize)
+          setToast(`Brush size ${nextSize}px`)
+        }
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [canEdit])
+  }, [canEdit, size])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!canEdit) return
